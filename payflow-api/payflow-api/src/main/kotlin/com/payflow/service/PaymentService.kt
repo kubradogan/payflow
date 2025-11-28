@@ -4,6 +4,7 @@ import com.payflow.api.PaymentListItem
 import com.payflow.api.PaymentRequest
 import com.payflow.api.PaymentResponse
 import com.payflow.core.EnhancedRouter
+import com.payflow.core.MetricsRegistry
 import com.payflow.domain.Payment
 import com.payflow.infra.IdempotencyService
 import com.payflow.provider.ProviderResult
@@ -16,13 +17,16 @@ import java.util.*
 class PaymentService(
     private val repo: PaymentRepository,
     private val router: EnhancedRouter,
-    private val idem: IdempotencyService
+    private val idem: IdempotencyService,
+    private val metrics: MetricsRegistry
+
 ) {
 
     @Transactional
     fun process(req: PaymentRequest): PaymentResponse {
         val key = req.idempotencyKey
 
+        //Idempotent tekrar
         repo.findByIdempotencyKey(key)?.let { existing ->
             return PaymentResponse.from(
                 id = existing.id,
@@ -32,18 +36,20 @@ class PaymentService(
             )
         }
 
+        //Idempotency kilidi
         if (!idem.tryAcquire(key, "processing")) {
             val existing = repo.findByIdempotencyKey(key)
                 ?: throw IllegalStateException("Idempotent request in progress, please retry")
             return PaymentResponse.from(existing.id, existing.status, existing.provider, existing.message)
         }
 
+        //Primary provider seçimi
         val primary = router.chooseProvider()
         var p = Payment(
             amount = req.amount,
             currency = req.currency,
             idempotencyKey = key,
-            provider = primary.providerName, // "stripe" / "mockpsp"
+            provider = primary.providerName,
             status = "PENDING"
         )
         p = repo.save(p)
@@ -52,21 +58,35 @@ class PaymentService(
         val result: ProviderResult
 
         try {
+            // Primary denemesi
             val start = System.nanoTime()
             result = primary.provider.charge(req.amount, req.currency, key)
             val latencyMs = (System.nanoTime() - start) / 1_000_000
             router.report(primary.providerName, result.success, latencyMs)
+
+            if (!result.success) {
+                // Provider decline hata metriği
+                metrics.recordError("primary-decline")
+            }
         } catch (ex: Exception) {
-            // Failover
+            // Failover yolu
+            metrics.recordError("primary-exception")
+
             val secondary = router.chooseProvider()
             if (secondary.providerName != primary.providerName) {
+                metrics.incFailover()
                 used = secondary
+
                 val s2 = System.nanoTime()
                 val r2 = secondary.provider.charge(req.amount, req.currency, key)
                 val l2 = (System.nanoTime() - s2) / 1_000_000
                 router.report(secondary.providerName, r2.success, l2)
+
+                if (!r2.success) {
+                    metrics.recordError("secondary-decline")
+                }
+
                 p.provider = secondary.providerName
-                // update status/message aşağıda r2 ile yapılacak
                 p.status = if (r2.success) "SUCCEEDED" else "FAILED"
                 p.message = r2.message
                 p = repo.save(p)
@@ -80,6 +100,10 @@ class PaymentService(
         p.status = if (result.success) "SUCCEEDED" else "FAILED"
         p.message = result.message
         p = repo.save(p)
+
+        if (!result.success) {
+            metrics.recordError("primary-decline-no-failover")
+        }
 
         idem.setResult(key, p.id.toString())
 

@@ -1,8 +1,7 @@
 package com.payflow.web
 
-import com.payflow.api.MetricsSummaryDto
 import com.payflow.api.PaymentListItem
-import com.payflow.api.ProviderStatusDto
+import com.payflow.core.MetricsRegistry
 import com.payflow.core.ProviderHealthRegistry
 import com.payflow.core.ProviderStatsRegistry
 import com.payflow.provider.FaultConfig
@@ -10,6 +9,13 @@ import com.payflow.provider.MockPspState
 import com.payflow.service.PaymentService
 import org.springframework.web.bind.annotation.*
 
+
+data class AdminMetricsResponse(
+    val successRate: Double,
+    val p95LatencyMs: Long,
+    val failoverCount: Long,
+    val errorDistribution: Map<String, Long>
+)
 @RestController
 @RequestMapping("/admin")
 class AdminController(
@@ -17,6 +23,7 @@ class AdminController(
     private val health: ProviderHealthRegistry,
     private val paymentService: PaymentService,
     private val stats: ProviderStatsRegistry,
+    private val metrics: MetricsRegistry
 ) {
     @PostMapping("/mockpsp/config")
     fun setMockConfig(@RequestBody cfg: FaultConfig) = run {
@@ -33,66 +40,37 @@ class AdminController(
         mapOf("provider" to name, "up" to up)
     }
 
+    @GetMapping("/providers")
+    fun getProviders() = health.snapshot()
+
+    @GetMapping("/metrics")
+    fun getMetrics(): AdminMetricsResponse {
+        val snapshot = stats.snapshot()
+
+        val totalSuccess = snapshot.values.sumOf { it.success.toLong() }
+        val totalFail = snapshot.values.sumOf { it.fail.toLong() }
+        val total = (totalSuccess + totalFail).coerceAtLeast(1)
+
+        val successRate = totalSuccess.toDouble() / total
+
+        val allLatencies: List<Long> = snapshot.values.flatMap { it.latencies }
+        val p95 = computeP95(allLatencies)
+
+        return AdminMetricsResponse(
+            successRate = successRate,
+            p95LatencyMs = p95,
+            failoverCount = metrics.failoverCount(),
+            errorDistribution = metrics.errorDistribution()
+        )
+    }
+
+    private fun computeP95(latencies: List<Long>): Long {
+        if (latencies.isEmpty()) return 0
+        val sorted = latencies.sorted()
+        val index = ((sorted.size - 1) * 0.95).toInt().coerceIn(0, sorted.size - 1)
+        return sorted[index]
+    }
     @GetMapping("/payments")
     fun getRecentPayments(): List<PaymentListItem> =
         paymentService.listRecent()
-
-    @GetMapping("/providers")
-    fun getProviders(): List<ProviderStatusDto> {
-        val snapshot = health.snapshot() // map: name -> up/down
-        val result = mutableListOf<ProviderStatusDto>()
-        result.add(
-            ProviderStatusDto(
-                name = "stripe",
-                status = if (snapshot["stripe"] != false) "UP" else "DOWN",
-                failureRate = 0.0,
-                artificialLatencyMs = 0,
-                timeoutMs = 0
-            )
-        )
-        val cfg = mockState.config
-        result.add(
-            ProviderStatusDto(
-                name = "mockpsp",
-                status = if (snapshot["mockpsp"] != false) "UP" else "DOWN",
-                failureRate = cfg.failureRate,
-                artificialLatencyMs = cfg.addLatencyMs,
-                timeoutMs = if (cfg.forceTimeout) 3000 else 0
-            )
-        )
-
-        return result
-    }
-
-    @GetMapping("/metrics")
-    fun getMetrics(): MetricsSummaryDto {
-        val all = stats.snapshot()
-
-        var totalSuccess = 0
-        var totalFail = 0
-        var weightedLatency = 0.0
-
-        all.forEach { (_, s) ->
-            val total = s.success + s.fail
-            totalSuccess += s.success
-            totalFail += s.fail
-            if (total > 0) {
-                weightedLatency += s.avgLatencyMs
-            }
-        }
-
-        val total = (totalSuccess + totalFail).coerceAtLeast(1)
-        val successRate = 100.0 * totalSuccess / total
-        val p95Latency = weightedLatency.coerceAtLeast(0.0).toLong()
-
-        val errorDist = all.mapValues { (_, s) -> s.fail.toLong() }
-
-
-        return MetricsSummaryDto(
-            successRate = successRate,
-            p95LatencyMs = p95Latency,
-            failoverCount = 0,
-            errorDistribution = errorDist
-        )
-    }
 }
