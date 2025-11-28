@@ -2,6 +2,8 @@ package com.payflow.api
 
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
+import java.time.OffsetDateTime
+import java.util.*
 
 data class PaymentRequest(
     @field:Min(1) val amount: Long,
@@ -29,3 +31,13 @@ data class PaymentResponse(
         )
     }
 }
+
+data class PaymentListItem(
+    val id: UUID,
+    val amount: Long,
+    val currency: String,
+    val status: String,
+    val provider: String,
+    val message: String?,
+    val createdAt: OffsetDateTime
+)

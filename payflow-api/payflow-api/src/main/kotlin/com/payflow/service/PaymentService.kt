@@ -1,5 +1,6 @@
 package com.payflow.service
 
+import com.payflow.api.PaymentListItem
 import com.payflow.api.PaymentRequest
 import com.payflow.api.PaymentResponse
 import com.payflow.core.EnhancedRouter
@@ -89,4 +90,20 @@ class PaymentService(
         val entity = repo.findById(UUID.fromString(id)).orElseThrow()
         return PaymentResponse.from(entity.id, entity.status, entity.provider, entity.message)
     }
+
+    fun listRecent(limit: Int = 50): List<PaymentListItem> =
+        repo.findAll()
+            .sortedByDescending { it.createdAt }
+            .take(limit)
+            .map {
+                PaymentListItem(
+                    id = it.id,
+                    amount = it.amount,
+                    currency = it.currency,
+                    status = it.status,
+                    provider = it.provider,
+                    message = it.message,
+                    createdAt = it.createdAt
+                )
+            }
 }
