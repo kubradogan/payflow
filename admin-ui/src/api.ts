@@ -1,12 +1,28 @@
-// src/api.ts
 const BASE_URL = "http://localhost:8080";
 
-const ADMIN_USER = "admin";
-const ADMIN_PASS = "admin123";
+// Global Basic Auth token (Base64)
+let authToken: string | null = null;
 
-function authHeader() {
-    const token = btoa(`${ADMIN_USER}:${ADMIN_PASS}`);
-    return { Authorization: `Basic ${token}` };
+export function setCredentials(username: string, password: string) {
+    authToken = btoa(`${username}:${password}`);
+    localStorage.setItem("authToken", authToken);
+}
+
+// Headers üretici
+function authHeader(): HeadersInit | undefined {
+    // Token yoksa localStorage’dan yüklemeyi dene
+    if (!authToken) {
+        const stored = localStorage.getItem("authToken");
+        if (stored) {
+            authToken = stored;
+        }
+    }
+
+    if (!authToken) {
+        return undefined;   // public istek gibi gider, 401 alırsak FE’de yakalarız
+    }
+
+    return {Authorization: `Basic ${authToken}`};
 }
 
 export type PaymentItem = {
@@ -26,14 +42,11 @@ export type AdminMetrics = {
     errorDistribution: Record<string, number>;
 };
 
-// /admin/providers şu an Map<String, Boolean> dönüyor
 export type ProvidersResponse = Record<string, boolean>;
 
 export async function fetchPayments(): Promise<PaymentItem[]> {
     const res = await fetch(`${BASE_URL}/admin/payments`, {
-        headers: {
-            ...authHeader(),
-        },
+        headers: authHeader(),
     });
     if (!res.ok) throw new Error("Failed to load payments");
     return res.json();
@@ -41,11 +54,11 @@ export async function fetchPayments(): Promise<PaymentItem[]> {
 
 export async function fetchProviders(): Promise<ProvidersResponse> {
     const res = await fetch(`${BASE_URL}/admin/providers`, {
-        headers: {
-            ...authHeader(),
-        },
+        headers: authHeader(),
     });
-    if (!res.ok) throw new Error("Failed to load providers");
+    if (!res.ok) {
+        throw new Error("Failed to load providers");
+    }
     return res.json();
 }
 
@@ -58,23 +71,24 @@ export async function setProviderStatus(
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            ...authHeader(),
+            ...(authHeader() ?? {}),
         },
     });
-    if (!res.ok) throw new Error("Failed to update provider");
+    if (!res.ok) {
+        throw new Error("Failed to update provider");
+    }
 }
 
 export async function fetchMetrics(): Promise<AdminMetrics> {
     const res = await fetch(`${BASE_URL}/admin/metrics`, {
-        headers: {
-            ...authHeader(),
-        },
+        headers: authHeader(),
     });
-    if (!res.ok) throw new Error("Failed to load metrics");
+    if (!res.ok) {
+        throw new Error("Failed to load metrics");
+    }
     return res.json();
 }
 
-// MockPSP fault config ayarı için (sonra kullanacağız)
 export async function setMockFaultConfig(cfg: {
     failureRate: number;
     addLatencyMs: number;
@@ -84,9 +98,29 @@ export async function setMockFaultConfig(cfg: {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            ...authHeader(),
+            ...(authHeader() ?? {}),
         },
         body: JSON.stringify(cfg),
     });
-    if (!res.ok) throw new Error("Failed to update mock config");
+    if (!res.ok) {
+        throw new Error("Failed to update mock config");
+    }
 }
+
+// Logout için
+export function clearCredentials() {
+    authToken = null;
+    localStorage.removeItem("authToken");
+}
+
+// Uygulama açıldığında önceden login var mı kontrolü
+export function hasAuthToken(): boolean {
+    if (authToken) return true;
+    const stored = localStorage.getItem("authToken");
+    if (stored) {
+        authToken = stored;
+        return true;
+    }
+    return false;
+}
+

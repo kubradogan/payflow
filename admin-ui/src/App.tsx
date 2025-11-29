@@ -1,13 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, {useEffect, useState} from "react";
 import {
     fetchPayments,
     fetchProviders,
     fetchMetrics,
     setProviderStatus,
     setMockFaultConfig,
+    setCredentials,
     PaymentItem,
     ProvidersResponse,
     AdminMetrics,
+    hasAuthToken,
+    clearCredentials,
 } from "./api";
 import "./App.css";
 
@@ -17,40 +20,62 @@ function formatDate(iso: string) {
     return new Date(iso).toLocaleString();
 }
 
-function App() {
-    const [activeTab, setActiveTab] = useState<Tab>("payments");
+type LoginProps = {
+    onSuccess: () => void;
+};
+
+function LoginView({onSuccess}: LoginProps) {
+    const [username, setUsername] = useState("admin");
+    const [password, setPassword] = useState("admin123");
+    const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setLoading(true);
+
+        try {
+            // Kimlik bilgilerini sakla (Basic <base64>)
+            setCredentials(username, password);
+            await fetchMetrics();
+
+            onSuccess();
+        } catch (err) {
+            setError("Invalid username or password");
+            clearCredentials();
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
-        <div className="app-root">
-            <header className="app-header">
-                <h1>PayFlow – Admin Dashboard</h1>
-                <nav className="tabs">
-                    <button
-                        className={activeTab === "payments" ? "tab active" : "tab"}
-                        onClick={() => setActiveTab("payments")}
-                    >
-                        Payments
+        <div className="login-root">
+            <div className="login-card">
+                <h1>PayFlow Admin Login</h1>
+                <form onSubmit={handleSubmit} className="login-form">
+                    <label>
+                        Username
+                        <input
+                            type="text"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                        />
+                    </label>
+                    <label>
+                        Password
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
+                    </label>
+                    {error && <p className="error">{error}</p>}
+                    <button type="submit" disabled={loading}>
+                        {loading ? "Signing in..." : "Login"}
                     </button>
-                    <button
-                        className={activeTab === "providers" ? "tab active" : "tab"}
-                        onClick={() => setActiveTab("providers")}
-                    >
-                        Providers
-                    </button>
-                    <button
-                        className={activeTab === "metrics" ? "tab active" : "tab"}
-                        onClick={() => setActiveTab("metrics")}
-                    >
-                        Metrics
-                    </button>
-                </nav>
-            </header>
-
-            <main className="app-main">
-                {activeTab === "payments" && <PaymentsView />}
-                {activeTab === "providers" && <ProvidersView />}
-                {activeTab === "metrics" && <MetricsView />}
-            </main>
+                </form>
+            </div>
         </div>
     );
 }
@@ -184,11 +209,10 @@ function ProvidersView() {
                 </div>
             )}
 
-            <div className="card" style={{ marginTop: "1.5rem" }}>
+            <div className="card" style={{marginTop: "1.5rem"}}>
                 <h3>MockPSP Fault Injection</h3>
                 <p>
-                    Demo için <strong>MockPSP</strong>’ye %50 failure + 500ms extra
-                    latency ver.
+                    Demo için <strong>MockPSP</strong>’ye %50 failure + 500ms extra latency ver.
                 </p>
                 <button onClick={setMockFault50}>Apply demo faults</button>
             </div>
@@ -246,7 +270,7 @@ function MetricsView() {
                 </div>
             </div>
 
-            <div className="card" style={{ marginTop: "1.5rem" }}>
+            <div className="card" style={{marginTop: "1.5rem"}}>
                 <h3>Error Distribution</h3>
                 {Object.keys(metrics.errorDistribution).length === 0 ? (
                     <p>No errors recorded.</p>
@@ -261,6 +285,63 @@ function MetricsView() {
                 )}
             </div>
         </section>
+    );
+}
+
+function App() {
+    const [loggedIn, setLoggedIn] = useState<boolean>(() => hasAuthToken());
+    const [activeTab, setActiveTab] = useState<Tab>("payments");
+
+    if (!loggedIn) {
+        return <LoginView onSuccess={() => setLoggedIn(true)}/>;
+    }
+
+    const handleLogout = () => {
+        clearCredentials();
+        setLoggedIn(false);
+    };
+
+    return (
+        <div className="app-root">
+            <header className="app-header">
+                <div className="app-header-left">
+                    <h1>PayFlow – Admin Dashboard</h1>
+                    <nav className="tabs">
+                        <button
+                            className={activeTab === "payments" ? "tab active" : "tab"}
+                            onClick={() => setActiveTab("payments")}
+                        >
+                            Payments
+                        </button>
+                        <button
+                            className={activeTab === "providers" ? "tab active" : "tab"}
+                            onClick={() => setActiveTab("providers")}
+                        >
+                            Providers
+                        </button>
+                        <button
+                            className={activeTab === "metrics" ? "tab active" : "tab"}
+                            onClick={() => setActiveTab("metrics")}
+                        >
+                            Metrics
+                        </button>
+                    </nav>
+                </div>
+
+                <div className="app-header-right">
+                    <span className="logged-in-text">Logged in as admin</span>
+                    <button className="btn-logout" onClick={handleLogout}>
+                        Logout
+                    </button>
+                </div>
+            </header>
+
+            <main className="app-main">
+                {activeTab === "payments" && <PaymentsView/>}
+                {activeTab === "providers" && <ProvidersView/>}
+                {activeTab === "metrics" && <MetricsView/>}
+            </main>
+        </div>
     );
 }
 
