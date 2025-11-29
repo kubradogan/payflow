@@ -8,17 +8,20 @@ import com.payflow.core.MetricsRegistry
 import com.payflow.domain.Payment
 import com.payflow.infra.IdempotencyService
 import com.payflow.provider.ProviderResult
+import com.payflow.repo.PaymentDecisionRepository
 import com.payflow.repo.PaymentRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
+import com.payflow.domain.PaymentDecision
 
 @Service
 class PaymentService(
     private val repo: PaymentRepository,
     private val router: EnhancedRouter,
     private val idem: IdempotencyService,
-    private val metrics: MetricsRegistry
+    private val metrics: MetricsRegistry,
+    private val decisionRepo: PaymentDecisionRepository
 
 ) {
 
@@ -54,6 +57,15 @@ class PaymentService(
         )
         p = repo.save(p)
 
+        // Primary routing kararı için audit kaydı
+        decisionRepo.save(
+            PaymentDecision(
+                paymentId = p.id,
+                chosenProvider = primary.providerName,
+                reason = primary.reason
+            )
+        )
+
         var used = primary
         val result: ProviderResult
 
@@ -76,6 +88,16 @@ class PaymentService(
             if (secondary.providerName != primary.providerName) {
                 metrics.incFailover()
                 used = secondary
+
+                // Failover kararı için ikinci audit kaydı
+                decisionRepo.save(
+                    PaymentDecision(
+                        paymentId = p.id,
+                        chosenProvider = secondary.providerName,
+                        reason = "failover:${secondary.reason}"
+                    )
+                )
+
 
                 val s2 = System.nanoTime()
                 val r2 = secondary.provider.charge(req.amount, req.currency, key)

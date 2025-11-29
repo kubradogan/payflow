@@ -5,6 +5,7 @@ import com.payflow.core.MetricsRegistry
 import com.payflow.core.ProviderHealthRegistry
 import com.payflow.repo.PaymentRepository
 import com.payflow.provider.MockPspState
+import com.payflow.repo.PaymentDecisionRepository
 import com.payflow.service.PaymentService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -12,6 +13,8 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.redis.core.StringRedisTemplate
+import java.util.UUID
+import kotlin.collections.isNotEmpty
 
 @SpringBootTest
 class PayflowApiApplicationTests {
@@ -34,9 +37,12 @@ class PayflowApiApplicationTests {
     @Autowired
     lateinit var redisTemplate: StringRedisTemplate
 
+    @Autowired
+    lateinit var decisionRepo: PaymentDecisionRepository
+
     @BeforeEach
     fun cleanState() {
-        // Her testten önce DB ve Redis'i temizle
+        // Her testten önce DB ve Redis temizle
         paymentRepository.deleteAll()
 
         val keys = redisTemplate.keys("idem:*")
@@ -64,7 +70,7 @@ class PayflowApiApplicationTests {
 
     @Test
     fun `router avoids down provider`() {
-        // Stripe DOWN, MockPSP UP
+        // Stripe DOWN MockPSP UP
         health.set("stripe", false)
         health.set("mockpsp", true)
 
@@ -80,7 +86,7 @@ class PayflowApiApplicationTests {
 
     @Test
     fun `error metrics captured when primary provider fails without failover`() {
-        // Stripe DOWN, sadece MockPSP
+        // Stripe DOWN sadece MockPSP
         health.set("stripe", false)
         health.set("mockpsp", true)
 
@@ -99,5 +105,16 @@ class PayflowApiApplicationTests {
         val dist = metrics.errorDistribution()
         val count = dist["primary-decline-no-failover"] ?: 0L
         assertTrue(count >= 1L, "primary-decline-no-failover metriği en az 1 olmalı, actual=$count")
+    }
+
+    @Test
+    fun `routing decision is persisted for payment`() {
+        val key = "decision-test-1"
+        val req = PaymentRequest(amount = 100, currency = "EUR", idempotencyKey = key)
+
+        val resp = paymentService.process(req)
+
+        val decisions = decisionRepo.findByPaymentId(UUID.fromString(resp.paymentId))
+        assertTrue(decisions.isNotEmpty(), "Routing decision should be stored for this payment")
     }
 }
