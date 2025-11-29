@@ -11,6 +11,7 @@ import {
     AdminMetrics,
     hasAuthToken,
     clearCredentials,
+    createPayment,
 } from "./api";
 import "./App.css";
 
@@ -80,10 +81,168 @@ function LoginView({onSuccess}: LoginProps) {
     );
 }
 
+//NEW PAYMENT MODAL
+
+type NewPaymentModalProps = {
+    open: boolean;
+    onClose: () => void;
+    onCreated: () => void; // başarıdan sonra listeyi yenilemek için
+};
+
+function NewPaymentModal({open, onClose, onCreated}: NewPaymentModalProps) {
+    const [amount, setAmount] = useState<string>("1299");
+    const [currency, setCurrency] = useState<string>("EUR");
+    const [idempotencyKey, setIdempotencyKey] = useState<string>("demo-abc-001");
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [result, setResult] = useState<PaymentItem | null>(null);
+
+    if (!open) return null;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setSubmitting(true);
+        setResult(null);
+
+        const numericAmount = Number(amount);
+        if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+            setError("Amount must be a positive number");
+            setSubmitting(false);
+            return;
+        }
+
+        try {
+            const created = await createPayment({
+                amount: numericAmount,
+                currency,
+                idempotencyKey,
+            });
+            setResult(created);
+            onCreated(); // listeyi yenile
+        } catch (err: any) {
+            setError(err.message ?? "Failed to create payment");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // Sonuç ekranında sadece Close butonu
+    if (result) {
+        return (
+            <div className="modal-backdrop">
+                <div className="modal">
+                    <div className="modal-header">
+                        <h2>Create New Payment</h2>
+                        <button
+                            className="modal-close"
+                            onClick={() => {
+                                setResult(null);
+                                onClose();
+                            }}
+                        >
+                            ×
+                        </button>
+                    </div>
+                    <div className="modal-body">
+                        <p><strong>id:</strong> {result.id}</p>
+                        <p>
+                            <strong>status:</strong>{" "}
+                            <span
+                                className={`status-badge status-${result.status.toLowerCase()}`}
+                            >
+                                {result.status}
+                            </span>
+                        </p>
+                        <p><strong>provider:</strong> {result.provider}</p>
+                        {result.message && (
+                            <p><strong>message:</strong> {result.message}</p>
+                        )}
+                    </div>
+                    <div className="modal-footer">
+                        <button
+                            className="btn-secondary"
+                            onClick={() => {
+                                setResult(null);
+                                onClose();
+                            }}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Form ekranı
+    return (
+        <div className="modal-backdrop">
+            <div className="modal">
+                <div className="modal-header">
+                    <h2>Create New Payment</h2>
+                    <button className="modal-close" onClick={onClose}>
+                        ×
+                    </button>
+                </div>
+                <form className="modal-body" onSubmit={handleSubmit}>
+                    <label className="field">
+                        <span>Amount (cents)</span>
+                        <input
+                            type="number"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                        />
+                    </label>
+                    <label className="field">
+                        <span>Currency</span>
+                        <select
+                            value={currency}
+                            onChange={(e) => setCurrency(e.target.value)}
+                        >
+                            <option value="EUR">EUR</option>
+                            <option value="USD">USD</option>
+                            <option value="GBP">GBP</option>
+                        </select>
+                    </label>
+                    <label className="field">
+                        <span>Idempotency Key</span>
+                        <input
+                            type="text"
+                            value={idempotencyKey}
+                            onChange={(e) => setIdempotencyKey(e.target.value)}
+                        />
+                    </label>
+                    {error && <p className="error">{error}</p>}
+                    <div className="modal-footer">
+                        <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={onClose}
+                        >
+                            Cancel
+                        </button>
+                        <button type="submit" className="btn-primary" disabled={submitting}>
+                            {submitting ? "Submitting..." : "Submit"}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
 function PaymentsView() {
     const [items, setItems] = useState<PaymentItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState<string>("ALL");
+    const [page, setPage] = useState(1);
+    const PAGE_SIZE = 10;
+
+    const [showNewPayment, setShowNewPayment] = useState(false);
 
     const load = async () => {
         try {
@@ -102,42 +261,147 @@ function PaymentsView() {
         load();
     }, []);
 
+    // Arama & filtre değişince sayfayı başa al
+    useEffect(() => {
+        setPage(1);
+    }, [search, statusFilter]);
+
+    const normalizedSearch = search.trim().toLowerCase();
+
+    const filtered = items.filter((p) => {
+        const matchesSearch =
+            !normalizedSearch || p.id.toLowerCase().includes(normalizedSearch);
+        const matchesStatus =
+            statusFilter === "ALL" || p.status === statusFilter;
+        return matchesSearch && matchesStatus;
+    });
+
+    const total = filtered.length;
+    const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const startIndex = (page - 1) * PAGE_SIZE;
+    const pageItems = filtered.slice(startIndex, startIndex + PAGE_SIZE);
+
+    const from = total === 0 ? 0 : startIndex + 1;
+    const to = startIndex + pageItems.length;
+
+    const goPrev = () => setPage((p) => Math.max(1, p - 1));
+    const goNext = () => setPage((p) => Math.min(pageCount, p + 1));
+
     return (
         <section>
-            <div className="section-header">
-                <h2>Recent Payments</h2>
-                <button onClick={load}>Refresh</button>
+            {/* Toolbar – New Payment, Search, Status, Refresh */}
+            <div className="payments-toolbar">
+                <div className="payments-toolbar-left">
+                    <button
+                        className="btn-primary"
+                        onClick={() => setShowNewPayment(true)}
+                    >
+                        + New Payment
+                    </button>
+
+                    <div className="search-box">
+                        <input
+                            type="text"
+                            placeholder="Search by ID/Key"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="status-filter">
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                        >
+                            <option value="ALL">All Status</option>
+                            <option value="SUCCEEDED">Succeeded</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="FAILED">Failed</option>
+                            <option value="REFUNDED">Refunded</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div className="payments-toolbar-right">
+                    <button className="btn-secondary" onClick={load}>
+                        Refresh
+                    </button>
+                </div>
             </div>
+
+            <h2 className="section-title">Recent Payments</h2>
+
             {loading && <p>Loading...</p>}
             {error && <p className="error">{error}</p>}
+
             {!loading && !error && (
-                <table className="table">
-                    <thead>
-                    <tr>
-                        <th>Created At</th>
-                        <th>ID</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                        <th>Provider</th>
-                        <th>Message</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {items.map((p) => (
-                        <tr key={p.id}>
-                            <td>{formatDate(p.createdAt)}</td>
-                            <td>{p.id}</td>
-                            <td>
-                                {p.amount} {p.currency}
-                            </td>
-                            <td>{p.status}</td>
-                            <td>{p.provider}</td>
-                            <td>{p.message ?? "-"}</td>
+                <>
+                    <table className="table">
+                        <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Amount</th>
+                            <th>Currency</th>
+                            <th>Status</th>
+                            <th>Provider</th>
+                            <th>Message</th>
+                            <th>Created At</th>
                         </tr>
-                    ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                        {pageItems.length === 0 && (
+                            <tr>
+                                <td colSpan={7} style={{textAlign: "center"}}>
+                                    No payments found.
+                                </td>
+                            </tr>
+                        )}
+                        {pageItems.map((p) => (
+                            <tr key={p.id}>
+                                <td>{p.id}</td>
+                                <td className="cell-right">
+                                    {p.amount} {p.currency}
+                                </td>
+                                <td>{p.currency}</td>
+                                <td>
+                                        <span
+                                            className={`status-badge status-${p.status.toLowerCase()}`}
+                                        >
+                                            {p.status}
+                                        </span>
+                                </td>
+                                <td>{p.provider}</td>
+                                <td>{p.message ?? "-"}</td>
+                                <td>{formatDate(p.createdAt)}</td>
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
+
+                    <div className="pagination">
+                        <span>
+                            Showing {from}-{to} / {total}
+                        </span>
+                        <div className="pagination-buttons">
+                            <button onClick={goPrev} disabled={page === 1}>
+                                Prev
+                            </button>
+                            <span className="page-indicator">
+                                {page} / {pageCount}
+                            </span>
+                            <button onClick={goNext} disabled={page === pageCount}>
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                </>
             )}
+
+            <NewPaymentModal
+                open={showNewPayment}
+                onClose={() => setShowNewPayment(false)}
+                onCreated={load}
+            />
         </section>
     );
 }
@@ -191,7 +455,7 @@ function ProvidersView() {
         <section>
             <div className="section-header">
                 <h2>Providers</h2>
-                <button onClick={load}>Refresh</button>
+                <button className="btn-primary" onClick={load}>Refresh</button>
             </div>
             {loading && <p>Loading...</p>}
             {error && <p className="error">{error}</p>}
@@ -252,9 +516,8 @@ function MetricsView() {
         <section>
             <div className="section-header">
                 <h2>Metrics</h2>
-                <button onClick={load}>Refresh</button>
+                <button className="btn-primary" onClick={load}>Refresh</button>
             </div>
-
             <div className="metrics-grid">
                 <div className="card">
                     <h3>Success Rate</h3>

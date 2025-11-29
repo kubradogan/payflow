@@ -124,3 +124,28 @@ export function hasAuthToken(): boolean {
     return false;
 }
 
+// Yeni ödeme oluşturmak için
+export type CreatePaymentRequest = {
+    amount: number;
+    currency: string;
+    idempotencyKey: string;
+};
+
+export async function createPayment(
+    req: CreatePaymentRequest
+): Promise<PaymentItem> {
+    const res = await fetch(`${BASE_URL}/payments`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...authHeader(),
+        },
+        body: JSON.stringify(req),
+    });
+
+    if (!res.ok) {
+        throw new Error("Failed to create payment");
+    }
+    return res.json();
+}
+

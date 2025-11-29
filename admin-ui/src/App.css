@@ -118,31 +118,6 @@ body {
     margin: 0;
 }
 
-/* Tablo */
-
-.table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.table thead {
-    background: #e5e7eb;
-}
-
-.table th,
-.table td {
-    font-size: 0.9rem;
-    padding: 0.55rem 0.7rem;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.table tr:last-child td {
-    border-bottom: none;
-}
-
 /* Kart gridleri */
 
 .providers-grid,
@@ -170,12 +145,6 @@ body {
     font-weight: 600;
 }
 
-/* Genel buton */
-
-button {
-    font-family: inherit;
-}
-
 .section-header button,
 .card button {
     padding: 0.4rem 0.8rem;
@@ -195,11 +164,11 @@ button {
 .app-header {
     background: #111827;
     color: #fff;
-    padding: 1rem 2rem;
+    padding: 1.2rem 2rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
 }
 
 .app-header-left {
@@ -217,7 +186,7 @@ button {
 .app-header-right {
     display: flex;
     align-items: center;
-    gap: 0.75rem;                 /* Logged in ile Logout arasına boşluk */
+    gap: 0.75rem; /* Logged in ile Logout arasına boşluk */
     font-size: 0.9rem;
 }
 
@@ -242,4 +211,240 @@ button {
 
 .app-main {
     padding: 2rem 2rem 2.5rem;
+}
+
+/* Tablo */
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table thead {
+    background: #e5e7eb;
+}
+
+.table th,
+.table td {
+    font-size: 0.9rem;
+    padding: 0.55rem 0.7rem;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+}
+
+.table tr:last-child td {
+    border-bottom: none;
+}
+
+.table th:nth-child(2),
+.table td:nth-child(2),
+.cell-right {
+    text-align: right;
+}
+
+.section-title {
+    margin: 0 0 0.75rem 0;
+    font-size: 1.1rem;
+}
+
+/* Payments toolbar */
+
+.payments-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.payments-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.payments-toolbar-right {
+    display: flex;
+    align-items: center;
+}
+
+.search-box input {
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    min-width: 220px;
+    font-size: 0.9rem;
+}
+
+.status-filter select {
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    font-size: 0.9rem;
+    background: #fff;
+}
+
+button {
+    font-family: inherit;
+}
+
+.btn-secondary {
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    color: #111827;
+    font-size: 0.88rem;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background: #e5e7eb;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-succeeded {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-pending {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.status-failed {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.status-refunded {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.pagination {
+    margin-top: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.85rem;
+}
+
+.pagination-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.pagination button {
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    cursor: pointer;
+}
+
+.pagination button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.page-indicator {
+    padding: 0.15rem 0.5rem;
+}
+
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: #ffffff;
+    border-radius: 12px;
+    width: 420px;
+    max-width: 95%;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+    padding: 1.25rem 1.5rem;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.modal-close {
+    background: transparent;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+.modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.9rem;
+}
+
+.field span {
+    margin-bottom: 0.25rem;
+}
+
+.field input,
+.field select {
+    padding: 0.45rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    font-size: 0.9rem;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.btn-primary {
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    border: none;
+    background: #2563eb;
+    color: white;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.btn-primary:hover {
+    background: #1d4ed8;
 }
