@@ -43,7 +43,7 @@ class PayflowApiApplicationTests {
     @BeforeEach
     fun cleanState() {
         // Her testten önce DB ve Redis temizle
-        paymentRepository.deleteAll()
+//        paymentRepository.deleteAll()
 
         val keys = redisTemplate.keys("idem:*")
         if (!keys.isNullOrEmpty()) {
