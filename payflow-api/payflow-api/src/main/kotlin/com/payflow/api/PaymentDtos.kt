@@ -41,3 +41,10 @@ data class PaymentListItem(
     val message: String?,
     val createdAt: OffsetDateTime
 )
+
+data class PaymentPageResponse(
+    val items: List<PaymentListItem>,
+    val page: Int,
+    val size: Int,
+    val total: Long
+)

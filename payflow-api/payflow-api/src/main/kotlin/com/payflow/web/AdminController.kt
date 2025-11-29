@@ -1,6 +1,7 @@
 package com.payflow.web
 
 import com.payflow.api.PaymentListItem
+import com.payflow.api.PaymentPageResponse
 import com.payflow.core.MetricsRegistry
 import com.payflow.core.ProviderHealthRegistry
 import com.payflow.core.ProviderStatsRegistry
@@ -16,6 +17,7 @@ data class AdminMetricsResponse(
     val failoverCount: Long,
     val errorDistribution: Map<String, Long>
 )
+
 @RestController
 @RequestMapping("/admin")
 class AdminController(
@@ -70,7 +72,14 @@ class AdminController(
         val index = ((sorted.size - 1) * 0.95).toInt().coerceIn(0, sorted.size - 1)
         return sorted[index]
     }
+
     @GetMapping("/payments")
-    fun getRecentPayments(): List<PaymentListItem> =
-        paymentService.listRecent()
+    fun getPayments(
+        @RequestParam(required = false, name = "query") query: String?,
+        @RequestParam(required = false, name = "status") status: String?,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "10") size: Int
+    ): PaymentPageResponse {
+        return paymentService.searchPayments(query, status, page, size)
+    }
 }

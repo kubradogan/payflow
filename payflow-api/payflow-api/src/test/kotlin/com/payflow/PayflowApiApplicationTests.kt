@@ -40,16 +40,16 @@ class PayflowApiApplicationTests {
     @Autowired
     lateinit var decisionRepo: PaymentDecisionRepository
 
-    @BeforeEach
-    fun cleanState() {
-        // Her testten önce DB ve Redis temizle
-//        paymentRepository.deleteAll()
-
-        val keys = redisTemplate.keys("idem:*")
-        if (!keys.isNullOrEmpty()) {
-            redisTemplate.delete(keys)
-        }
-    }
+//    @BeforeEach
+//    fun cleanState() {
+//        // Her testten önce DB ve Redis temizle
+//     paymentRepository.deleteAll()
+//
+//        val keys = redisTemplate.keys("idem:*")
+//        if (!keys.isNullOrEmpty()) {
+//            redisTemplate.delete(keys)
+//        }
+//    }
 
     @Test
     fun contextLoads() {
