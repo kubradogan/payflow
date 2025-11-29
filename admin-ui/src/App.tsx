@@ -12,6 +12,7 @@ import {
     hasAuthToken,
     clearCredentials,
     createPayment,
+    PaymentPage
 } from "./api";
 import "./App.css";
 
@@ -95,7 +96,7 @@ function NewPaymentModal({open, onClose, onCreated}: NewPaymentModalProps) {
     const [idempotencyKey, setIdempotencyKey] = useState<string>("demo-abc-001");
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [result, setResult] = useState<PaymentItem | null>(null);
+    const [result, setResult] = useState<PaymentResponse | null>(null);
 
     if (!open) return null;
 
@@ -145,7 +146,7 @@ function NewPaymentModal({open, onClose, onCreated}: NewPaymentModalProps) {
                         </button>
                     </div>
                     <div className="modal-body">
-                        <p><strong>id:</strong> {result.id}</p>
+                        <p><strong>id:</strong> {result.paymentId}</p>
                         <p>
                             <strong>status:</strong>{" "}
                             <span
@@ -232,24 +233,30 @@ function NewPaymentModal({open, onClose, onCreated}: NewPaymentModalProps) {
     );
 }
 
+
 function PaymentsView() {
-    const [items, setItems] = useState<PaymentItem[]>([]);
+    const [data, setData] = useState<PaymentPage | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const [search, setSearch] = useState("");
-    const [statusFilter, setStatusFilter] = useState<string>("ALL");
-    const [page, setPage] = useState(1);
-    const PAGE_SIZE = 10;
-
+    const [searchText, setSearchText] = useState("");
     const [showNewPayment, setShowNewPayment] = useState(false);
+    const [statusFilter, setStatusFilter] =
+        useState<"ALL" | "SUCCEEDED" | "FAILED" | "PENDING">("ALL");
+    const [page, setPage] = useState(0);
+    const pageSize = 10;
 
     const load = async () => {
         try {
             setLoading(true);
             setError(null);
-            const data = await fetchPayments();
-            setItems(data);
+            const resp = await fetchPayments({
+                page,
+                size: pageSize,
+                query: searchText,
+                status: statusFilter,
+            });
+            setData(resp);
         } catch (e: any) {
             setError(e.message ?? "Failed to load payments");
         } finally {
@@ -258,88 +265,69 @@ function PaymentsView() {
     };
 
     useEffect(() => {
+        // page veya status değiştiğinde tekrar yükle
         load();
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page, statusFilter]);
 
-    // Arama & filtre değişince sayfayı başa al
-    useEffect(() => {
-        setPage(1);
-    }, [search, statusFilter]);
+    const handleSearchSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setPage(0);  // yeni aramada başa dön
+        load();
+    };
 
-    const normalizedSearch = search.trim().toLowerCase();
-
-    const filtered = items.filter((p) => {
-        const matchesSearch =
-            !normalizedSearch || p.id.toLowerCase().includes(normalizedSearch);
-        const matchesStatus =
-            statusFilter === "ALL" || p.status === statusFilter;
-        return matchesSearch && matchesStatus;
-    });
-
-    const total = filtered.length;
-    const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    const startIndex = (page - 1) * PAGE_SIZE;
-    const pageItems = filtered.slice(startIndex, startIndex + PAGE_SIZE);
-
-    const from = total === 0 ? 0 : startIndex + 1;
-    const to = startIndex + pageItems.length;
-
-    const goPrev = () => setPage((p) => Math.max(1, p - 1));
-    const goNext = () => setPage((p) => Math.min(pageCount, p + 1));
+    const total = data?.total ?? 0;
+    const from = total === 0 ? 0 : page * pageSize + 1;
+    const to = data ? page * pageSize + data.items.length : 0;
+    const totalPages = data ? Math.ceil(total / pageSize) : 0;
 
     return (
         <section>
-            {/* Toolbar – New Payment, Search, Status, Refresh */}
-            <div className="payments-toolbar">
-                <div className="payments-toolbar-left">
-                    <button
-                        className="btn-primary"
-                        onClick={() => setShowNewPayment(true)}
-                    >
-                        + New Payment
-                    </button>
-
-                    <div className="search-box">
-                        <input
-                            type="text"
-                            placeholder="Search by ID/Key"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="status-filter">
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                        >
-                            <option value="ALL">All Status</option>
-                            <option value="SUCCEEDED">Succeeded</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="FAILED">Failed</option>
-                            <option value="REFUNDED">Refunded</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div className="payments-toolbar-right">
-                    <button className="btn-secondary" onClick={load}>
-                        Refresh
-                    </button>
-                </div>
+            <div className="section-header section-header-with-filters">
+                <h2>Recent Payments</h2>
+                <button onClick={load}>Refresh</button>
             </div>
 
-            <h2 className="section-title">Recent Payments</h2>
+            <form className="payments-filters" onSubmit={handleSearchSubmit}>
+                <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => setShowNewPayment(true)}
+                >
+                    + New Payment
+                </button>
+
+                <input
+                    className="input-search"
+                    placeholder="Search by ID / key / provider"
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                />
+
+                <select
+                    className="select-status"
+                    value={statusFilter}
+                    onChange={(e) => {
+                        setPage(0);
+                        setStatusFilter(e.target.value as any);
+                    }}
+                >
+                    <option value="ALL">All Status</option>
+                    <option value="SUCCEEDED">Succeeded</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="FAILED">Failed</option>
+                </select>
+            </form>
 
             {loading && <p>Loading...</p>}
             {error && <p className="error">{error}</p>}
 
-            {!loading && !error && (
+            {!loading && !error && data && (
                 <>
                     <table className="table">
                         <thead>
                         <tr>
-                            <th>ID</th>
+                            <th>ID (short)</th>
                             <th>Amount</th>
                             <th>Currency</th>
                             <th>Status</th>
@@ -349,27 +337,12 @@ function PaymentsView() {
                         </tr>
                         </thead>
                         <tbody>
-                        {pageItems.length === 0 && (
-                            <tr>
-                                <td colSpan={7} style={{textAlign: "center"}}>
-                                    No payments found.
-                                </td>
-                            </tr>
-                        )}
-                        {pageItems.map((p) => (
+                        {data.items.map((p: PaymentItem) => (
                             <tr key={p.id}>
-                                <td>{p.id}</td>
-                                <td className="cell-right">
-                                    {p.amount} {p.currency}
-                                </td>
+                                <td>{p.id.slice(0, 8)}…{p.id.slice(-4)}</td>
+                                <td>{p.amount}</td>
                                 <td>{p.currency}</td>
-                                <td>
-                                        <span
-                                            className={`status-badge status-${p.status.toLowerCase()}`}
-                                        >
-                                            {p.status}
-                                        </span>
-                                </td>
+                                <td>{p.status}</td>
                                 <td>{p.provider}</td>
                                 <td>{p.message ?? "-"}</td>
                                 <td>{formatDate(p.createdAt)}</td>
@@ -378,18 +351,25 @@ function PaymentsView() {
                         </tbody>
                     </table>
 
-                    <div className="pagination">
+
+                    <div className="pagination-bar">
                         <span>
                             Showing {from}-{to} / {total}
                         </span>
                         <div className="pagination-buttons">
-                            <button onClick={goPrev} disabled={page === 1}>
+                            <button
+                                type="button"
+                                disabled={page === 0}
+                                onClick={() => setPage((p) => p - 1)}
+                            >
                                 Prev
                             </button>
-                            <span className="page-indicator">
-                                {page} / {pageCount}
-                            </span>
-                            <button onClick={goNext} disabled={page === pageCount}>
+                            <span>{totalPages === 0 ? 0 : page + 1} / {totalPages}</span>
+                            <button
+                                type="button"
+                                disabled={totalPages === 0 || page >= totalPages - 1}
+                                onClick={() => setPage((p) => p + 1)}
+                            >
                                 Next
                             </button>
                         </div>
@@ -400,7 +380,11 @@ function PaymentsView() {
             <NewPaymentModal
                 open={showNewPayment}
                 onClose={() => setShowNewPayment(false)}
-                onCreated={load}
+                onCreated={() => {
+                    // yeni payment yaratılınca listeyi yenile
+                    setPage(0);
+                    load();
+                }}
             />
         </section>
     );

@@ -448,3 +448,60 @@ button {
 .btn-primary:hover {
     background: #1d4ed8;
 }
+
+.section-header-with-filters {
+    margin-bottom: 0.75rem;
+}
+
+/* Payments filters bar */
+.payments-filters {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.input-search {
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    min-width: 220px;
+    font-size: 0.9rem;
+}
+
+.select-status {
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    font-size: 0.9rem;
+    background: #fff;
+}
+
+/* Pagination bar */
+.pagination-bar {
+    margin-top: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.85rem;
+}
+
+.pagination-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.pagination-buttons button {
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    cursor: pointer;
+}
+
+.pagination-buttons button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}

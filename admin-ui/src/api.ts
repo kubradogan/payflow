@@ -25,6 +25,14 @@ function authHeader(): HeadersInit | undefined {
     return {Authorization: `Basic ${authToken}`};
 }
 
+export type PaymentsQuery = {
+    page?: number;
+    size?: number;
+    query?: string;
+    status?: string; //SUCCEEDED FAILED PENDING
+};
+
+
 export type PaymentItem = {
     id: string;
     amount: number;
@@ -33,6 +41,13 @@ export type PaymentItem = {
     provider: string;
     message?: string | null;
     createdAt: string;
+};
+
+export type PaymentPage = {
+    items: PaymentItem[];
+    page: number;
+    size: number;
+    total: number;
 };
 
 export type AdminMetrics = {
@@ -44,10 +59,29 @@ export type AdminMetrics = {
 
 export type ProvidersResponse = Record<string, boolean>;
 
-export async function fetchPayments(): Promise<PaymentItem[]> {
-    const res = await fetch(`${BASE_URL}/admin/payments`, {
+export async function fetchPayments(
+    params: PaymentsQuery = {}
+): Promise<PaymentPage> {
+    const search = new URLSearchParams();
+
+    if (params.page !== undefined) search.append("page", String(params.page));
+    if (params.size !== undefined) search.append("size", String(params.size));
+    if (params.query && params.query.trim() !== "") {
+        search.append("query", params.query.trim());
+    }
+    if (params.status && params.status !== "ALL") {
+        search.append("status", params.status);
+    }
+
+    const qs = search.toString();
+    const url = qs
+        ? `${BASE_URL}/admin/payments?${qs}`
+        : `${BASE_URL}/admin/payments`;
+
+    const res = await fetch(url, {
         headers: authHeader(),
     });
+
     if (!res.ok) throw new Error("Failed to load payments");
     return res.json();
 }
@@ -130,15 +164,21 @@ export type CreatePaymentRequest = {
     currency: string;
     idempotencyKey: string;
 };
+type PaymentResponse = {
+    paymentId: string;
+    status: string;
+    provider: string | null;
+    message: string | null;
+};
 
 export async function createPayment(
     req: CreatePaymentRequest
-): Promise<PaymentItem> {
+): Promise<PaymentResponse> {
     const res = await fetch(`${BASE_URL}/payments`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            ...authHeader(),
+            ...(authHeader() ?? {}),
         },
         body: JSON.stringify(req),
     });
@@ -148,4 +188,3 @@ export async function createPayment(
     }
     return res.json();
 }
-
