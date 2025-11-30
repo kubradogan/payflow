@@ -12,7 +12,8 @@ import {
     hasAuthToken,
     clearCredentials,
     createPayment,
-    PaymentPage
+    PaymentPage,
+    PaymentResponse
 } from "./api";
 import "./App.css";
 
@@ -299,7 +300,7 @@ function PaymentsView() {
 
                 <input
                     className="input-search"
-                    placeholder="Search by ID / key / provider"
+                    placeholder="Search by idempotency key / provider"
                     value={searchText}
                     onChange={(e) => setSearchText(e.target.value)}
                 />

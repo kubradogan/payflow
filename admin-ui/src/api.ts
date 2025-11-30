@@ -164,7 +164,7 @@ export type CreatePaymentRequest = {
     currency: string;
     idempotencyKey: string;
 };
-type PaymentResponse = {
+export type PaymentResponse = {
     paymentId: string;
     status: string;
     provider: string | null;

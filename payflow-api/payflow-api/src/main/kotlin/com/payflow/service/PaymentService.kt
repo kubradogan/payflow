@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional
 import java.util.*
 import com.payflow.domain.PaymentDecision
 import org.springframework.data.domain.PageRequest
+import org.slf4j.LoggerFactory
+
 
 @Service
 class PaymentService(
@@ -26,6 +28,8 @@ class PaymentService(
     private val decisionRepo: PaymentDecisionRepository
 
 ) {
+
+    private val logger = LoggerFactory.getLogger(PaymentService::class.java)
 
     @Transactional
     fun process(req: PaymentRequest): PaymentResponse {
@@ -83,15 +87,16 @@ class PaymentService(
                 metrics.recordError("primary-decline")
             }
         } catch (ex: Exception) {
-            // Failover yolu
             metrics.recordError("primary-exception")
 
             val secondary = router.chooseProvider()
             if (secondary.providerName != primary.providerName) {
+
+                // Failover sayısını arttır
                 metrics.incFailover()
                 used = secondary
 
-                // Failover kararı için ikinci audit kaydı
+                // Failover kararını audit tablosuna yaz
                 decisionRepo.save(
                     PaymentDecision(
                         paymentId = p.id,
@@ -100,23 +105,40 @@ class PaymentService(
                     )
                 )
 
-
-                val s2 = System.nanoTime()
+                // Failover süresini ölçelim
+                val failoverStart = System.nanoTime()
                 val r2 = secondary.provider.charge(req.amount, req.currency, key)
-                val l2 = (System.nanoTime() - s2) / 1_000_000
-                router.report(secondary.providerName, r2.success, l2)
+                val failoverMs = (System.nanoTime() - failoverStart) / 1_000_000
 
+                // Provider latency/başarı metriklerini güncelle
+                router.report(secondary.providerName, r2.success, failoverMs)
+
+                // Eğer secondary de fail ederse error metriği
                 if (!r2.success) {
                     metrics.recordError("secondary-decline")
                 }
 
+                // Payment entityi güncelle
                 p.provider = secondary.providerName
                 p.status = if (r2.success) "SUCCEEDED" else "FAILED"
                 p.message = r2.message
                 p = repo.save(p)
+
+                // Idempotent sonuç
                 idem.setResult(key, p.id.toString())
+
+                // LOG
+                logger.info(
+                    "Failover completed to provider={} in {} ms (paymentId={}, idempotencyKey={})",
+                    secondary.providerName,
+                    failoverMs,
+                    p.id,
+                    key
+                )
+
                 return PaymentResponse.from(p.id, p.status, p.provider, p.message)
             } else {
+                // Başka provider yoksa aynı exceptionu tekrar fırlat
                 throw ex
             }
         }
@@ -138,22 +160,6 @@ class PaymentService(
         val entity = repo.findById(UUID.fromString(id)).orElseThrow()
         return PaymentResponse.from(entity.id, entity.status, entity.provider, entity.message)
     }
-
-    fun listRecent(limit: Int = 50): List<PaymentListItem> =
-        repo.findAll()
-            .sortedByDescending { it.createdAt }
-            .take(limit)
-            .map {
-                PaymentListItem(
-                    id = it.id,
-                    amount = it.amount,
-                    currency = it.currency,
-                    status = it.status,
-                    provider = it.provider,
-                    message = it.message,
-                    createdAt = it.createdAt
-                )
-            }
 
     fun searchPayments(
         query: String?,

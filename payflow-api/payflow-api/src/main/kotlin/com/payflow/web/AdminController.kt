@@ -78,7 +78,7 @@ class AdminController(
         @RequestParam(required = false, name = "query") query: String?,
         @RequestParam(required = false, name = "status") status: String?,
         @RequestParam(defaultValue = "0") page: Int,
-        @RequestParam(defaultValue = "10") size: Int
+        @RequestParam(defaultValue = "30") size: Int
     ): PaymentPageResponse {
         return paymentService.searchPayments(query, status, page, size)
     }

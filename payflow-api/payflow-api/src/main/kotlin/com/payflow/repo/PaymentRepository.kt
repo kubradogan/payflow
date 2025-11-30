@@ -11,16 +11,26 @@ import java.util.UUID
 interface PaymentRepository : JpaRepository<Payment, UUID> {
 
     @Query(
-        """
-        SELECT p FROM Payment p
-        WHERE (:status IS NULL OR p.status = :status)
+        value = """
+        SELECT * FROM payments
+        WHERE (:status IS NULL OR status = :status)
           AND (
                 :q IS NULL
-             OR LOWER(p.idempotencyKey) LIKE LOWER(CONCAT('%', :q, '%'))
-             OR LOWER(p.provider)        LIKE LOWER(CONCAT('%', :q, '%'))
+             OR idempotency_key ILIKE CONCAT('%', :q, '%')
+             OR provider ILIKE CONCAT('%', :q, '%')
           )
-        ORDER BY p.createdAt DESC
-        """
+        ORDER BY created_at DESC
+    """,
+        countQuery = """
+        SELECT count(*) FROM payments
+        WHERE (:status IS NULL OR status = :status)
+          AND (
+                :q IS NULL
+             OR idempotency_key ILIKE CONCAT('%', :q, '%')
+             OR provider ILIKE CONCAT('%', :q, '%')
+          )
+    """,
+        nativeQuery = true
     )
     fun searchPayments(
         @Param("q") q: String?,
