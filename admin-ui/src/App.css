@@ -314,7 +314,7 @@ body::-webkit-scrollbar-thumb,
 .table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 20px; /* 13 -> 14 */
+    font-size: 15px;
 }
 
 .table thead {
@@ -330,7 +330,7 @@ body::-webkit-scrollbar-thumb,
 }
 
 .table th {
-    font-size: 15px; /* 11 -> 12 */
+    font-size: 13px;
     text-transform: uppercase;
     letter-spacing: .12em;
     color: #6b7280;
@@ -552,6 +552,9 @@ body::-webkit-scrollbar-thumb,
     flex-direction: column;
     gap: 8px;
     margin-bottom: 12px;
+
+    max-height: 340px;   /* içerik çok artarsa dikey scroll */
+    overflow: auto;
 }
 
 .field {
@@ -806,4 +809,15 @@ body::-webkit-scrollbar-thumb,
     cursor: pointer;
     box-shadow: 0 6px 16px rgba(248, 113, 113, 0.5); /* daha az parlak */
     transition: transform .08s ease, box-shadow .08s ease, filter .08s ease;
+}
+
+/* Routing decisions modal içindeki tablo için override */
+.modal .table {
+    font-size: 13px;           /* genel tablodan biraz küçük olsun */
+}
+
+.modal .table th,
+.modal .table td {
+    white-space: normal;       /* uzun reason satır içi kırılabilsin */
+    padding: 6px 10px;         /* modalda daha sıkı görünüm */
 }

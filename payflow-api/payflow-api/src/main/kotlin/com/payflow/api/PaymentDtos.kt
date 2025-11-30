@@ -49,3 +49,9 @@ data class PaymentPageResponse(
     val size: Int,
     val total: Long
 )
+
+data class PaymentDecisionDto(
+    val chosenProvider: String,
+    val reason: String,
+    val decidedAt: OffsetDateTime
+)

@@ -13,6 +13,8 @@ import {
     PaymentPage,
     ProvidersResponse,
     AdminMetrics,
+    fetchPaymentDecisions,
+    PaymentDecision
 } from "./api";
 import "./App.css";
 
@@ -23,11 +25,31 @@ type ToastState = {
     message: string;
 } | null;
 
+type RoutingModalState = {
+    paymentId: string;
+    decisions: PaymentDecision[];
+    loading: boolean;
+    error: string | null;
+} | null;
+
 /* LOGIN */
 
 type LoginProps = {
     onSuccess: () => void;
 };
+
+// Amount cent cinsinden geliyo
+function formatAmount(amount: number, currency: string) {
+    // 100 cent = 1 birim
+    const value = amount / 100;
+
+    return new Intl.NumberFormat("en-IE", {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(value);
+}
 
 function LoginView({onSuccess}: LoginProps) {
     const [username, setUsername] = useState("admin");
@@ -185,13 +207,14 @@ function Sidebar({active, onChange}: SidebarProps) {
 type PaymentsPageProps = {
     reloadKey: number;
     onNewPaymentClick: () => void;
+    onViewRouting: (paymentId: string) => void;
 };
 
 function formatDate(iso: string) {
     return new Date(iso).toLocaleString();
 }
 
-function PaymentsPage({reloadKey, onNewPaymentClick}: PaymentsPageProps) {
+function PaymentsPage({reloadKey, onNewPaymentClick, onViewRouting}: PaymentsPageProps) {
     const [data, setData] = useState<PaymentPage | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -269,7 +292,15 @@ function PaymentsPage({reloadKey, onNewPaymentClick}: PaymentsPageProps) {
                 <div className="kpi-card">
                     <div className="kpi-label">Page Volume</div>
                     <div className="kpi-value">
-                        €{data ? data.items.reduce((acc, p) => acc + p.amount, 0) : 0}
+                        <div className="kpi-value">
+                            {data
+                                ? formatAmount(
+                                    data.items.reduce((acc, p) => acc + p.amount, 0),
+                                    // sayfadaki tüm ödemeler aynı currency yoksa ilkini baz al
+                                    data.items[0]?.currency ?? "EUR"
+                                )
+                                : formatAmount(0, "EUR")}
+                        </div>
                     </div>
                     <div className="kpi-trend">
                         {data ? `${data.items.length} payments on this page` : "No data yet"}
@@ -347,6 +378,7 @@ function PaymentsPage({reloadKey, onNewPaymentClick}: PaymentsPageProps) {
                                     <th>Currency</th>
                                     <th>Status</th>
                                     <th>Provider</th>
+                                    <th>Routing</th>
                                     <th>Message</th>
                                     <th>Created At</th>
                                 </tr>
@@ -354,7 +386,7 @@ function PaymentsPage({reloadKey, onNewPaymentClick}: PaymentsPageProps) {
                                 <tbody>
                                 {!data || data.items.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8}>No payments loaded.</td>
+                                        <td colSpan={9}>No payments loaded.</td>
                                     </tr>
                                 ) : (
                                     data.items.map((p: PaymentItem) => {
@@ -370,7 +402,7 @@ function PaymentsPage({reloadKey, onNewPaymentClick}: PaymentsPageProps) {
                                                     {p.id.slice(0, 8)}…{p.id.slice(-4)}
                                                 </td>
                                                 <td>{p.idempotencyKey}</td>
-                                                <td className="amount">{p.amount}</td>
+                                                <td className="amount">{formatAmount(p.amount, p.currency)}</td>
                                                 <td>{p.currency}</td>
                                                 <td>
                                                     <span className={`status-badge ${statusClass}`}>
@@ -378,6 +410,15 @@ function PaymentsPage({reloadKey, onNewPaymentClick}: PaymentsPageProps) {
                                                     </span>
                                                 </td>
                                                 <td>{p.provider}</td>
+                                                <td>
+                                                    <button
+                                                        type="button"
+                                                        className="btn-ghost"
+                                                        onClick={() => onViewRouting(p.id)}
+                                                    >
+                                                        View
+                                                    </button>
+                                                </td>
                                                 <td>{p.message ?? "-"}</td>
                                                 <td>{formatDate(p.createdAt)}</td>
                                             </tr>
@@ -723,10 +764,19 @@ function NewPaymentModal({onClose, onCreated, notify}: NewPaymentModalProps) {
                 currency,
                 idempotencyKey: idem,
             });
-            notify(
-                `Payment ${res.paymentId} – status: ${res.status} (provider: ${res.provider ?? "-"})`,
-                "success"
-            );
+            const corrId = (res as any).correlationId;
+            const provider = (res as any).payment.provider;
+            const paymentId = (res as any).payment.paymentId;
+            const status = (res as any).payment.status;
+            const msgLines = [
+                `Payment ID: ${paymentId}`,
+                `Status: ${status}`,
+                provider ? `Provider: ${provider}` : null,
+                corrId ? `Correlation ID: ${corrId}` : null,
+            ].filter(Boolean);
+
+            notify(msgLines.join("\n"), "success");
+
             onCreated();
             onClose();
         } catch (err: any) {
@@ -802,7 +852,7 @@ type MessageModalProps = {
     onClose: () => void;
 };
 
-function MessageModal({type, message, onClose}: MessageModalProps) {
+function MessageModal({ type, message, onClose }: MessageModalProps) {
     return (
         <div className="modal-backdrop">
             <div className="modal">
@@ -813,10 +863,84 @@ function MessageModal({type, message, onClose}: MessageModalProps) {
                     <button className="modal-close" onClick={onClose}>×</button>
                 </div>
                 <div className="modal-body">
-                    <p style={{fontSize: 14}}>{message}</p>
+                    <pre
+                        style={{
+                            fontSize: 14,
+                            whiteSpace: "pre-wrap",
+                            margin: 0,
+                            fontFamily: "inherit",
+                        }}
+                    >
+                        {message}
+                    </pre>
                 </div>
                 <div className="modal-footer">
                     <button className="btn-ghost" onClick={onClose}>OK</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+type RoutingDecisionsModalProps = {
+    state: RoutingModalState;
+    onClose: () => void;
+};
+
+function RoutingDecisionsModal({state, onClose}: RoutingDecisionsModalProps) {
+    if (!state) return null;
+
+    const shortId = state.paymentId.slice(0, 8) + "…" + state.paymentId.slice(-4);
+
+    return (
+        <div className="modal-backdrop">
+            <div className="modal">
+                <div className="modal-header">
+                    <div className="modal-title">
+                        Routing decisions for {shortId}
+                    </div>
+                    <button className="modal-close" onClick={onClose}>×</button>
+                </div>
+                <div className="modal-body">
+                    {state.loading && (
+                        <div className="loading-center">
+                            <div className="spinner"/>
+                        </div>
+                    )}
+
+                    {!state.loading && state.error && (
+                        <p className="error">{state.error}</p>
+                    )}
+
+                    {!state.loading && !state.error && state.decisions.length === 0 && (
+                        <p style={{fontSize: 14, color: "#9ca3af"}}>
+                            No routing decisions recorded for this payment.
+                        </p>
+                    )}
+
+                    {!state.loading && !state.error && state.decisions.length > 0 && (
+                        <table className="table">
+                            <thead>
+                            <tr>
+                                <th>Chosen Provider</th>
+                                <th>Reason</th>
+                                <th>Decided At</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {state.decisions.map((d, idx) => (
+                                <tr key={idx}>
+                                    <td>{d.chosenProvider}</td>
+                                    <td>{d.reason}</td>
+                                    <td>{new Date(d.decidedAt).toLocaleString()}</td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+                <div className="modal-footer">
+                    <button className="btn-ghost" onClick={onClose}>Close</button>
                 </div>
             </div>
         </div>
@@ -855,6 +979,7 @@ function App() {
     const [paymentsReloadKey, setPaymentsReloadKey] = useState(0);
     const [toast, setToast] = useState<ToastState>(null);
     const [resultModal, setResultModal] = useState<ToastState | null>(null);
+    const [routingModal, setRoutingModal] = useState<RoutingModalState>(null);
 
     const notify = (message: string, type: "success" | "error" = "success") => {
         setToast({type, message});
@@ -876,6 +1001,37 @@ function App() {
     const notifyResultModal = (message: string, type: "success" | "error" = "success") => {
         setResultModal({type, message});
     };
+    const openRoutingModal = async (paymentId: string) => {
+        // İlk açılışta loading
+        setRoutingModal({
+            paymentId,
+            decisions: [],
+            loading: true,
+            error: null,
+        });
+
+        try {
+            const data = await fetchPaymentDecisions(paymentId);
+            setRoutingModal({
+                paymentId,
+                decisions: data,
+                loading: false,
+                error: null,
+            });
+        } catch (e: any) {
+            setRoutingModal({
+                paymentId,
+                decisions: [],
+                loading: false,
+                error: e?.message ?? "Failed to load routing decisions",
+            });
+        }
+    };
+
+    const closeRoutingModal = () => {
+        setRoutingModal(null);
+    };
+
 
     const handleLogout = () => {
         clearCredentials();
@@ -895,6 +1051,7 @@ function App() {
                     <PaymentsPage
                         reloadKey={paymentsReloadKey}
                         onNewPaymentClick={() => setShowNewPayment(true)}
+                        onViewRouting={openRoutingModal}
                     />
                 )}
                 {/* Providers, toast kullanmaya devam etsin */}
@@ -918,6 +1075,13 @@ function App() {
                     type={resultModal.type}
                     message={resultModal.message}
                     onClose={() => setResultModal(null)}
+                />
+            )}
+
+            {routingModal && (
+                <RoutingDecisionsModal
+                    state={routingModal}
+                    onClose={closeRoutingModal}
                 />
             )}
         </div>

@@ -20,7 +20,7 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.resilience4j:resilience4j-spring-boot2:2.1.0")
+    implementation("io.github.resilience4j:resilience4j-spring-boot3:2.3.0")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")

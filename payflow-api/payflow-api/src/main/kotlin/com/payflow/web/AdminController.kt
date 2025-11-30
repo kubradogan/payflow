@@ -1,6 +1,5 @@
 package com.payflow.web
 
-import com.payflow.api.PaymentListItem
 import com.payflow.api.PaymentPageResponse
 import com.payflow.core.MetricsRegistry
 import com.payflow.core.ProviderHealthRegistry
@@ -9,6 +8,9 @@ import com.payflow.provider.FaultConfig
 import com.payflow.provider.MockPspState
 import com.payflow.service.PaymentService
 import org.springframework.web.bind.annotation.*
+import com.payflow.api.PaymentDecisionDto
+import com.payflow.repo.PaymentDecisionRepository
+import java.util.UUID
 
 
 data class AdminMetricsResponse(
@@ -25,7 +27,9 @@ class AdminController(
     private val health: ProviderHealthRegistry,
     private val paymentService: PaymentService,
     private val stats: ProviderStatsRegistry,
-    private val metrics: MetricsRegistry
+    private val metrics: MetricsRegistry,
+    private val decisionRepo: PaymentDecisionRepository
+
 ) {
     @PostMapping("/mockpsp/config")
     fun setMockConfig(@RequestBody cfg: FaultConfig) = run {
@@ -81,5 +85,19 @@ class AdminController(
         @RequestParam(defaultValue = "30") size: Int
     ): PaymentPageResponse {
         return paymentService.searchPayments(query, status, page, size)
+    }
+
+    @GetMapping("/payments/{id}/decisions")
+    fun getPaymentDecisions(@PathVariable id: String): List<PaymentDecisionDto> {
+        val paymentId = UUID.fromString(id)
+        val decisions = decisionRepo.findByPaymentId(paymentId)
+
+        return decisions.map {
+            PaymentDecisionDto(
+                chosenProvider = it.chosenProvider,
+                reason = it.reason,
+                decidedAt = it.decidedAt
+            )
+        }
     }
 }

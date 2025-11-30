@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
 import com.payflow.domain.PaymentDecision
+import com.payflow.provider.PaymentsProvider
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry
 import org.springframework.data.domain.PageRequest
 import org.slf4j.LoggerFactory
 
@@ -25,7 +27,8 @@ class PaymentService(
     private val router: EnhancedRouter,
     private val idem: IdempotencyService,
     private val metrics: MetricsRegistry,
-    private val decisionRepo: PaymentDecisionRepository
+    private val decisionRepo: PaymentDecisionRepository,
+    private val circuitBreakerRegistry: CircuitBreakerRegistry
 
 ) {
 
@@ -77,9 +80,15 @@ class PaymentService(
         val result: ProviderResult
 
         try {
-            // Primary denemesi
+            // Primary denemesi (Resilience4j circuit breaker ile)
             val start = System.nanoTime()
-            result = primary.provider.charge(req.amount, req.currency, key)
+            result = callProviderWithCircuitBreaker(
+                primary.providerName,
+                primary.provider,
+                req.amount,
+                req.currency,
+                key
+            )
             val latencyMs = (System.nanoTime() - start) / 1_000_000
             router.report(primary.providerName, result.success, latencyMs)
 
@@ -106,9 +115,15 @@ class PaymentService(
                     )
                 )
 
-                // Failover süresini ölçelim
+                // Failover süresini ölçelim (CB ile)
                 val failoverStart = System.nanoTime()
-                val r2 = secondary.provider.charge(req.amount, req.currency, key)
+                val r2 = callProviderWithCircuitBreaker(
+                    secondary.providerName,
+                    secondary.provider,
+                    req.amount,
+                    req.currency,
+                    key
+                )
                 val failoverMs = (System.nanoTime() - failoverStart) / 1_000_000
 
                 // Provider latency/başarı metriklerini güncelle
@@ -193,5 +208,18 @@ class PaymentService(
             size = resultPage.size,
             total = resultPage.totalElements
         )
+    }
+
+    private fun callProviderWithCircuitBreaker(
+        providerName: String,
+        provider: PaymentsProvider,
+        amount: Long,
+        currency: String,
+        idempotencyKey: String
+    ): ProviderResult {
+        val cb = circuitBreakerRegistry.circuitBreaker(providerName)
+        return cb.executeSupplier {
+            provider.charge(amount, currency, idempotencyKey)
+        }
     }
 }

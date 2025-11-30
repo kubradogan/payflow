@@ -25,6 +25,44 @@ function authHeader(): HeadersInit | undefined {
     return {Authorization: `Basic ${authToken}`};
 }
 
+// Ortak fetch helper
+async function doFetch(url: string, init: RequestInit = {}): Promise<Response> {
+    const res = await fetch(url, {
+        ...init,
+        headers: {
+            ...(init.headers || {}),
+            ...(authHeader() ?? {}),
+        },
+    });
+
+    if (res.status === 401) {
+        // Token bozuk / süresi dolmuş tamamen logout ol
+        clearCredentials();
+        //sayfayı yenile, App state'i baştan LoginView'e düşecek
+        window.location.reload();
+        throw new Error("Unauthorized");
+    }
+
+    return res;
+}
+
+async function handleJson<T>(res: Response): Promise<T> {
+    if (res.status === 401) {
+        // Auth bitmiş, temizle ve login ekranına dön
+        clearCredentials();
+        // basit çözüm: sayfayı login’e döndür
+        window.location.href = "/";
+        throw new Error("Unauthorized");
+    }
+
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Request failed");
+    }
+
+    return res.json() as Promise<T>;
+}
+
 export type PaymentsQuery = {
     page?: number;
     size?: number;
@@ -79,22 +117,13 @@ export async function fetchPayments(
         ? `${BASE_URL}/admin/payments?${qs}`
         : `${BASE_URL}/admin/payments`;
 
-    const res = await fetch(url, {
-        headers: authHeader(),
-    });
-
-    if (!res.ok) throw new Error("Failed to load payments");
-    return res.json();
+    const res = await doFetch(url);
+    return handleJson<PaymentPage>(res);
 }
 
 export async function fetchProviders(): Promise<ProvidersResponse> {
-    const res = await fetch(`${BASE_URL}/admin/providers`, {
-        headers: authHeader(),
-    });
-    if (!res.ok) {
-        throw new Error("Failed to load providers");
-    }
-    return res.json();
+    const res = await doFetch(`${BASE_URL}/admin/providers`);
+    return handleJson<ProvidersResponse>(res);
 }
 
 export async function setProviderStatus(
@@ -102,26 +131,18 @@ export async function setProviderStatus(
     up: boolean
 ): Promise<void> {
     const status = up ? "up" : "down";
-    const res = await fetch(`${BASE_URL}/admin/providers/${name}/${status}`, {
+    const res = await doFetch(`${BASE_URL}/admin/providers/${name}/${status}`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            ...(authHeader() ?? {}),
         },
     });
-    if (!res.ok) {
-        throw new Error("Failed to update provider");
-    }
+    await handleJson<any>(res);   // body önemli değil
 }
 
 export async function fetchMetrics(): Promise<AdminMetrics> {
-    const res = await fetch(`${BASE_URL}/admin/metrics`, {
-        headers: authHeader(),
-    });
-    if (!res.ok) {
-        throw new Error("Failed to load metrics");
-    }
-    return res.json();
+    const res = await doFetch(`${BASE_URL}/admin/metrics`);
+    return handleJson<AdminMetrics>(res);
 }
 
 export async function setMockFaultConfig(cfg: {
@@ -129,17 +150,14 @@ export async function setMockFaultConfig(cfg: {
     addLatencyMs: number;
     forceTimeout: boolean;
 }): Promise<void> {
-    const res = await fetch(`${BASE_URL}/admin/mockpsp/config`, {
+    const res = await doFetch(`${BASE_URL}/admin/mockpsp/config`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            ...(authHeader() ?? {}),
         },
         body: JSON.stringify(cfg),
     });
-    if (!res.ok) {
-        throw new Error("Failed to update mock config");
-    }
+    await handleJson<any>(res);
 }
 
 // Logout için
@@ -172,20 +190,61 @@ export type PaymentResponse = {
     message: string | null;
 };
 
+export type CreatePaymentResult = {
+    payment: PaymentResponse;
+    correlationId: string | null;
+};
+
 export async function createPayment(
     req: CreatePaymentRequest
-): Promise<PaymentResponse> {
+): Promise<CreatePaymentResult> {
+    // İsteğe client-side correlation id üret
+    const cid = crypto.randomUUID();
+
     const res = await fetch(`${BASE_URL}/payments`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
+            "X-Correlation-Id": cid,
             ...(authHeader() ?? {}),
         },
         body: JSON.stringify(req),
     });
 
+    const body: PaymentResponse = await res.json();
+
     if (!res.ok) {
-        throw new Error("Failed to create payment");
+        // backend hata mesajı varsa yine de fırlat
+        throw new Error(body.message || "Failed to create payment");
+    }
+
+    // Backend döndürdüyse onu kullan, yoksa kendi ürettiğimizi
+    const respCid = res.headers.get("X-Correlation-Id");
+
+    return {
+        payment: body,
+        correlationId: respCid || cid,
+    };
+}
+
+export type PaymentDecision = {
+    chosenProvider: string;
+    reason: string;
+    decidedAt: string;
+};
+
+export async function fetchPaymentDecisions(
+    paymentId: string
+): Promise<PaymentDecision[]> {
+    const res = await fetch(
+        `${BASE_URL}/admin/payments/${paymentId}/decisions`,
+        {
+            headers: authHeader(),
+        }
+    );
+
+    if (!res.ok) {
+        throw new Error("Failed to load routing decisions");
     }
     return res.json();
 }

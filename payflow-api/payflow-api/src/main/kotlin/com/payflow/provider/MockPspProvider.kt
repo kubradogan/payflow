@@ -13,7 +13,7 @@ class MockPspProvider(
 
         //Force timeout senaryosu: failover tetiklemek için
         if (cfg.forceTimeout) {
-            // < 2s içinde failover istiyoruz → ~800ms gecikme simüle et
+            // < 2s içinde failover istiyoruz 800ms gecikme simüle et
             Thread.sleep(800)
             throw RuntimeException("MockPSP forced timeout for failover demo")
         }
