@@ -54,6 +54,7 @@ class PaymentService(
 
         //Primary provider seçimi
         val primary = router.chooseProvider()
+        logger.info("Chosen PRIMARY provider={} for idempotencyKey={}", primary.providerName, key)
         var p = Payment(
             amount = req.amount,
             currency = req.currency,
@@ -181,7 +182,8 @@ class PaymentService(
                 status = it.status,
                 provider = it.provider,
                 message = it.message,
-                createdAt = it.createdAt
+                createdAt = it.createdAt,
+                idempotencyKey = it.idempotencyKey
             )
         }
 

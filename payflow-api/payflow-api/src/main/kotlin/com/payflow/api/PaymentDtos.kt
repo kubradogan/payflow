@@ -39,7 +39,8 @@ data class PaymentListItem(
     val status: String,
     val provider: String,
     val message: String?,
-    val createdAt: OffsetDateTime
+    val createdAt: OffsetDateTime,
+    val idempotencyKey: String
 )
 
 data class PaymentPageResponse(

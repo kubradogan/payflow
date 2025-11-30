@@ -19,7 +19,7 @@ function authHeader(): HeadersInit | undefined {
     }
 
     if (!authToken) {
-        return undefined;   // public istek gibi gider, 401 alırsak FE’de yakalarız
+        return undefined;// public istek gibi gider401 alırsak FEde yakalar
     }
 
     return {Authorization: `Basic ${authToken}`};
@@ -41,6 +41,7 @@ export type PaymentItem = {
     provider: string;
     message?: string | null;
     createdAt: string;
+    idempotencyKey: string;
 };
 
 export type PaymentPage = {
