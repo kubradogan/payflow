@@ -1,46 +1,50 @@
-# Getting Started with Create React App
+# PayFlow Admin UI
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React-based admin console for the PayFlow payment orchestration backend.
 
-## Available Scripts
+The UI connects to the Spring Boot API and exposes a simple control plane over:
 
-In the project directory, you can run:
+- `/admin/payments` + `/admin/payments/{id}/decisions`
+- `/admin/providers`
+- `/admin/mockpsp/config`
+- `/admin/metrics`
+- `/payments` (demo client to create new payments)
 
-### `npm start`
+## Prerequisites
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+- Node.js (LTS is fine)
+- Running PayFlow backend on `http://localhost:8080`
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+From the project root, you can start the local infrastructure and backend as:
 
-### `npm test`
+```bash
+docker compose up -d
+./gradlew :payflow-api:bootRun
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+# Backend API: http://localhost:8080
 
-### `npm run build`
+## Running the Admin UI
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash
+cd admin-ui
+npm install
+npm start
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+# Admin UI: http://localhost:3000
+CORS and Basic Auth are already configured on the backend side for local development.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+# Authentication
 
-### `npm run eject`
+The admin UI uses HTTP Basic Auth against the backend.
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+Default credentials:
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+Username: admin
+Password: admin123
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+On successful login the UI stores a Base64-encoded token in localStorage and attaches it as Authorization: Basic … to all /admin/** requests.
+If the backend returns 401, the UI automatically clears credentials and sends the user back to the login screen

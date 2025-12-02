@@ -7,19 +7,18 @@ import com.payflow.api.PaymentResponse
 import com.payflow.core.EnhancedRouter
 import com.payflow.core.MetricsRegistry
 import com.payflow.domain.Payment
+import com.payflow.domain.PaymentDecision
 import com.payflow.infra.IdempotencyService
 import com.payflow.provider.ProviderResult
+import com.payflow.provider.PaymentsProvider
 import com.payflow.repo.PaymentDecisionRepository
 import com.payflow.repo.PaymentRepository
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry
+import org.slf4j.LoggerFactory
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.util.*
-import com.payflow.domain.PaymentDecision
-import com.payflow.provider.PaymentsProvider
-import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry
-import org.springframework.data.domain.PageRequest
-import org.slf4j.LoggerFactory
-
+import java.util.UUID
 
 @Service
 class PaymentService(
@@ -29,7 +28,6 @@ class PaymentService(
     private val metrics: MetricsRegistry,
     private val decisionRepo: PaymentDecisionRepository,
     private val circuitBreakerRegistry: CircuitBreakerRegistry
-
 ) {
 
     private val logger = LoggerFactory.getLogger(PaymentService::class.java)
@@ -38,7 +36,7 @@ class PaymentService(
     fun process(req: PaymentRequest): PaymentResponse {
         val key = req.idempotencyKey
 
-        //Idempotent tekrar
+        // 1) Idempotent tekrar kontrolü
         repo.findByIdempotencyKey(key)?.let { existing ->
             return PaymentResponse.from(
                 id = existing.id,
@@ -48,16 +46,17 @@ class PaymentService(
             )
         }
 
-        //Idempotency kilidi
+        // 2) Idempotency kilidi (Redis)
         if (!idem.tryAcquire(key, "processing")) {
             val existing = repo.findByIdempotencyKey(key)
                 ?: throw IllegalStateException("Idempotent request in progress, please retry")
             return PaymentResponse.from(existing.id, existing.status, existing.provider, existing.message)
         }
 
-        //Primary provider seçimi
+        // 3) Primary provider seçimi
         val primary = router.chooseProvider()
         logger.info("Chosen PRIMARY provider={} for idempotencyKey={}", primary.providerName, key)
+
         var p = Payment(
             amount = req.amount,
             currency = req.currency,
@@ -76,11 +75,10 @@ class PaymentService(
             )
         )
 
-        var used = primary
         val result: ProviderResult
 
         try {
-            // Primary denemesi (Resilience4j circuit breaker ile)
+            // 4) Primary denemesi (Resilience4j circuit breaker ile)
             val start = System.nanoTime()
             result = callProviderWithCircuitBreaker(
                 primary.providerName,
@@ -97,16 +95,15 @@ class PaymentService(
                 metrics.recordError("primary-decline")
             }
         } catch (ex: Exception) {
+            // Primary çağrısı sırasında exception oluştu
             metrics.recordError("primary-exception")
+            router.report(primary.providerName, false, 5_000)
 
             val secondary = router.chooseProvider()
             if (secondary.providerName != primary.providerName) {
-
-                // Failover sayısını arttır
+                // Başka UP provider var → failover
                 metrics.incFailover()
-                used = secondary
 
-                // Failover kararını audit tablosuna yaz
                 decisionRepo.save(
                     PaymentDecision(
                         paymentId = p.id,
@@ -115,7 +112,6 @@ class PaymentService(
                     )
                 )
 
-                // Failover süresini ölçelim (CB ile)
                 val failoverStart = System.nanoTime()
                 val r2 = callProviderWithCircuitBreaker(
                     secondary.providerName,
@@ -126,24 +122,19 @@ class PaymentService(
                 )
                 val failoverMs = (System.nanoTime() - failoverStart) / 1_000_000
 
-                // Provider latency/başarı metriklerini güncelle
                 router.report(secondary.providerName, r2.success, failoverMs)
 
-                // Eğer secondary de fail ederse error metriği
                 if (!r2.success) {
                     metrics.recordError("secondary-decline")
                 }
 
-                // Payment entityi güncelle
                 p.provider = secondary.providerName
                 p.status = if (r2.success) "SUCCEEDED" else "FAILED"
                 p.message = r2.message
                 p = repo.save(p)
 
-                // Idempotent sonuç
                 idem.setResult(key, p.id.toString())
 
-                // LOG
                 logger.info(
                     "Failover completed to provider={} in {} ms (paymentId={}, idempotencyKey={})",
                     secondary.providerName,
@@ -154,16 +145,25 @@ class PaymentService(
 
                 return PaymentResponse.from(p.id, p.status, p.provider, p.message)
             } else {
-                // Başka provider yoksa aynı exceptionu tekrar fırlat
-                throw ex
+                // Başka UP provider yok → primary fail + NO FAILOVER metriği
+                metrics.recordError("primary-decline-no-failover")
+
+                p.status = "FAILED"
+                p.message = "Primary provider (${primary.providerName}) failed: ${ex.message}"
+                p = repo.save(p)
+                idem.setResult(key, p.id.toString())
+
+                return PaymentResponse.from(p.id, p.status, p.provider, p.message)
             }
         }
 
+        // 5) Primary path başarılı veya decline (exception OLMADAN)
         p.status = if (result.success) "SUCCEEDED" else "FAILED"
         p.message = result.message
         p = repo.save(p)
 
         if (!result.success) {
+            // Buraya ancak: exception yok, failover yok, provider success=false ise geliyoruz
             metrics.recordError("primary-decline-no-failover")
         }
 

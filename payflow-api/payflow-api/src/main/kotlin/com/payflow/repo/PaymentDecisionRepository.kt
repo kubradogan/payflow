@@ -5,5 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import java.util.UUID
 
 interface PaymentDecisionRepository : JpaRepository<PaymentDecision, UUID> {
-    fun findByPaymentId(paymentId: UUID): List<PaymentDecision>
+
+    // Routing history'yi decidedAt artan sırada al
+    fun findByPaymentIdOrderByDecidedAtAsc(paymentId: UUID): List<PaymentDecision>
 }

@@ -1,45 +1,74 @@
 # PayFlow
-This project shows a small payment API built with Spring Boot, Postgres, and Redis.
-The goal is to demonstrate idempotent payment handling, provider routing, failover logic, and basic operational metrics.
 
-# Running the Backend
-# 1. Start the local infrastructure:
+Small payment API built with **Spring Boot + PostgreSQL + Redis**.
+
+Shows:
+
+Idempotent payment handling (Redis + DB unique key)
+Multi-provider routing (Stripe stub + Mock PSP)
+Health-aware routing + automatic failover
+Resilience4j circuit breakers
+Fault injection for Mock PSP
+Basic metrics + admin UI
+HMAC-signed webhook example
+k6 load test with p95/error thresholds
+
+## Run Backend
+
+## 1) Start infra:
+
 `docker compose up -d`
 
-(Postgres runs on 5434, Redis on 6380.)
+(Postgres @ 5434, Redis @ 6380)
 
-# 2. Start the application from your IDE:
-`PayflowApiApplication`
+## 2. Start app:
 
-# The API will be available at:
-http://localhost:8080
+`./gradlew bootRun`
 
-# Running the Admin UI
+API: http://localhost:8080
+
+## Run Admin UI
+
 `cd admin-ui`
 `npm install`
 `npm start`
 
-# The UI runs on:
-http://localhost:3000
+UI: http://localhost:3000 (Basic Auth protected)
 
-# Main Features
-* Idempotent payment processing (Redis key-based lock + DB constraint)
-* Dynamic provider routing with health checks and latency/success scoring
-* Failover when the primary provider fails
-* Fault injection (failure rate, artificial latency, forced timeout)
-* Metrics endpoint exposing p95 latency, success rate, failover count
-* Basic Auth–protected admin panel
-* k6 load test script for stress testing
+## Main Endpoints
 
-# Endpoints
-* POST /payments – create a payment
-* GET /payments/{id} – fetch payment status
-* GET /admin/providers – provider health
-* POST /admin/providers/{name}/up|down
-* POST /admin/mockpsp/config – fault injection
-* GET /admin/metrics – aggregated metrics
-* GET /admin/payments – recent payments
+Public
 
-# Default Admin Credentials
-`Username: admin`
-`Password: admin123`
+• POST /payments – create payment (idempotent by idempotencyKey)
+• GET /payments/{id} – get payment status
+• POST /webhooks/stripe – HMAC-SHA256 signed webhook (X-Signature)
+
+Admin (Basic Auth)
+
+• GET /admin/payments – paged list + search
+• GET /admin/payments/{id}/decisions – routing history
+• GET /admin/providers – provider health (UP/DOWN)
+• POST /admin/providers/{name}/{status} – mark UP/DOWN
+• POST /admin/mockpsp/config – set failureRate / latency / timeout
+• GET /admin/metrics – successRate, p95 latency, failoverCount, errorDistribution
+
+## Load & Tests
+k6 script: `k6-load.js`
+
+`k6 run k6-load.js`
+
+# or
+
+`BASE_URL=http://localhost:8080 k6 run k6-load.js`
+
+## Thresholds:
+• http_req_duration p(95) < 200 ms
+• http_req_failed rate < 5%
+• Unit/integration tests:
+
+`./gradlew test`
+
+PaymentServiceContainersTest uses Testcontainers (Postgres + Redis) and is @Disabled by default.
+
+## Default Admin Credentials
+`admin / admin123`

@@ -33,8 +33,23 @@ resilience4j:
     instances:
       stripe:
         slidingWindowType: COUNT_BASED
-        slidingWindowSize: 20          # son 20 çağrıya bak
-        failureRateThreshold: 50       # %50den fazla hata ozaman OPEN
+        slidingWindowSize: 20
+        failureRateThreshold: 50
         permittedNumberOfCallsInHalfOpenState: 5
-        waitDurationInOpenState: 10s   # 10 saniye sonra HALF_OPEN
+        waitDurationInOpenState: 10s
         automaticTransitionFromOpenToHalfOpenEnabled: true
+
+      mockpsp:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        failureRateThreshold: 50
+        permittedNumberOfCallsInHalfOpenState: 5
+        waitDurationInOpenState: 10s
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+payflow:
+  webhook:
+    stripe:
+      # Local dev/test için dummy secret.
+      # Gerçek ortamda environment variable üzerinden override edilmeli.
+      secret: "dev-webhook-secret"

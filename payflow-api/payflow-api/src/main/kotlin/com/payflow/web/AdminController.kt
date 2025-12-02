@@ -1,17 +1,16 @@
 package com.payflow.web
 
+import com.payflow.api.PaymentDecisionDto
 import com.payflow.api.PaymentPageResponse
 import com.payflow.core.MetricsRegistry
 import com.payflow.core.ProviderHealthRegistry
 import com.payflow.core.ProviderStatsRegistry
 import com.payflow.provider.FaultConfig
 import com.payflow.provider.MockPspState
+import com.payflow.repo.PaymentDecisionRepository
 import com.payflow.service.PaymentService
 import org.springframework.web.bind.annotation.*
-import com.payflow.api.PaymentDecisionDto
-import com.payflow.repo.PaymentDecisionRepository
 import java.util.UUID
-
 
 data class AdminMetricsResponse(
     val successRate: Double,
@@ -29,8 +28,8 @@ class AdminController(
     private val stats: ProviderStatsRegistry,
     private val metrics: MetricsRegistry,
     private val decisionRepo: PaymentDecisionRepository
-
 ) {
+
     @PostMapping("/mockpsp/config")
     fun setMockConfig(@RequestBody cfg: FaultConfig) = run {
         mockState.config.failureRate = cfg.failureRate.coerceIn(0.0, 1.0)
@@ -53,8 +52,8 @@ class AdminController(
     fun getMetrics(): AdminMetricsResponse {
         val snapshot = stats.snapshot()
 
-        val totalSuccess = snapshot.values.sumOf { it.success.toLong() }
-        val totalFail = snapshot.values.sumOf { it.fail.toLong() }
+        val totalSuccess = snapshot.values.sumOf { it.success }
+        val totalFail = snapshot.values.sumOf { it.fail }
         val total = (totalSuccess + totalFail).coerceAtLeast(1)
 
         val successRate = totalSuccess.toDouble() / total
@@ -90,7 +89,7 @@ class AdminController(
     @GetMapping("/payments/{id}/decisions")
     fun getPaymentDecisions(@PathVariable id: String): List<PaymentDecisionDto> {
         val paymentId = UUID.fromString(id)
-        val decisions = decisionRepo.findByPaymentId(paymentId)
+        val decisions = decisionRepo.findByPaymentIdOrderByDecidedAtAsc(paymentId)
 
         return decisions.map {
             PaymentDecisionDto(
