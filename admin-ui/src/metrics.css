@@ -1,0 +1,43 @@
+/* ==== METRICS PAGE FONT SCALE ==== */
+
+.metrics-page {
+    font-size: 18px; /* genel metin */
+}
+
+.metrics-page .page-title {
+    font-size: 32px;
+    font-weight: 600;
+}
+
+.metrics-page .page-subtitle {
+    font-size: 18px;
+    color: var(--text-muted);
+}
+
+/* Kartları biraz daha dolu göster */
+.metrics-page .metric-card {
+    padding: 18px 20px;
+}
+
+.metrics-page .metric-label {
+    font-size: 13px;
+    letter-spacing: .18em;
+}
+
+.metrics-page .metric-value {
+    font-size: 28px;  /* 24 -> 28 */
+    font-weight: 600;
+}
+
+.metrics-page .metric-extra {
+    font-size: 16px;  /* 15 -> 16 */
+}
+
+/* Alt taraftaki error distribution kartı */
+.metrics-page .card .card-title {
+    font-size: 18px;
+}
+
+.metrics-page .card .card-subtitle {
+    font-size: 16px;
+}

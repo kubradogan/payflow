@@ -1,0 +1,47 @@
+/* ==== PROVIDERS PAGE FONT SCALE ==== */
+
+.providers-page {
+    font-size: 18px;
+}
+
+.providers-page .page-title {
+    font-size: 32px;
+    font-weight: 600;
+}
+
+.providers-page .page-subtitle {
+    font-size: 18px;
+    color: var(--text-muted);
+}
+
+/* Kart içi metinleri büyüt */
+.providers-page .provider-card {
+    font-size: 17px;
+}
+
+.providers-page .provider-status {
+    font-size: 15px;
+}
+
+/* Badge’leri büyüt */
+.providers-page .badge-up,
+.providers-page .badge-down {
+    font-size: 13px;
+    padding: 5px 10px;
+}
+
+/* Fault injection kartı */
+.providers-page .card .card-title {
+    font-size: 18px;
+}
+
+.providers-page .card .card-subtitle {
+    font-size: 16px;
+}
+
+/* Buton boyutları */
+.providers-page .btn-primary,
+.providers-page .btn-ghost {
+    font-size: 16px;
+    padding: 10px 18px;
+}
