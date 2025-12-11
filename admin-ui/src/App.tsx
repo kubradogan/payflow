@@ -529,7 +529,7 @@ function ProvidersPage({notify}: ProvidersPageProps) {
     };
 
     return (
-        <section className="page">
+        <section className="page providers-page">
             <div className="page-header">
                 <div className="page-title-block">
                     <h1 className="page-title">Providers</h1>
@@ -676,7 +676,7 @@ function MetricsPage({}: MetricsPageProps) {
     const successPercent = (metrics.successRate * 100).toFixed(2);
 
     return (
-        <section className="page">
+        <section className="page metrics-page">
             <div className="page-header">
                 <div className="page-title-block">
                     <h1 className="page-title">Metrics</h1>
@@ -852,10 +852,10 @@ type MessageModalProps = {
     onClose: () => void;
 };
 
-function MessageModal({ type, message, onClose }: MessageModalProps) {
+function MessageModal({type, message, onClose}: MessageModalProps) {
     return (
         <div className="modal-backdrop">
-            <div className="modal">
+            <div className="modal message-modal">
                 <div className="modal-header">
                     <div className="modal-title">
                         {type === "success" ? "Payment Created" : "Payment Failed"}
@@ -865,7 +865,8 @@ function MessageModal({ type, message, onClose }: MessageModalProps) {
                 <div className="modal-body">
                     <pre
                         style={{
-                            fontSize: 14,
+                            fontSize: 16,          // 14 -> 16
+                            lineHeight: 1.5,
                             whiteSpace: "pre-wrap",
                             margin: 0,
                             fontFamily: "inherit",
@@ -983,10 +984,10 @@ function App() {
 
     const notify = (message: string, type: "success" | "error" = "success") => {
         setToast({type, message});
-        // 3 saniye sonra kapat
+        // 5 saniye sonra kapat
         setTimeout(() => {
             setToast((prev) => (prev && prev.message === message ? null : prev));
-        }, 3000);
+        }, 5000);
     };
 
     // Providers vb. için klasik toast
@@ -994,7 +995,7 @@ function App() {
         setToast({type, message});
         setTimeout(() => {
             setToast(prev => (prev && prev.message === message ? null : prev));
-        }, 3000);
+        }, 5000);
     };
 
     // Sadece yeni payment için kullanılacak modal notify
