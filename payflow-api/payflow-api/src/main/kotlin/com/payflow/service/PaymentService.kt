@@ -19,6 +19,7 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
+import org.springframework.dao.DataIntegrityViolationException
 
 @Service
 class PaymentService(
@@ -64,7 +65,13 @@ class PaymentService(
             provider = primary.providerName,
             status = "PENDING"
         )
-        p = repo.save(p)
+        try {
+            p = repo.save(p)
+        } catch (ex: DataIntegrityViolationException) {
+            // Aynı idempotencyKey ile başka thread/process bizden önce insert ettiyse
+            val existing = repo.findByIdempotencyKey(key) ?: throw ex
+            return PaymentResponse.from(existing.id, existing.status, existing.provider, existing.message)
+        }
 
         // Primary routing kararı için audit kaydı
         decisionRepo.save(
@@ -99,7 +106,7 @@ class PaymentService(
             metrics.recordError("primary-exception")
             router.report(primary.providerName, false, 5_000)
 
-            val secondary = router.chooseProvider()
+            val secondary = router.chooseProviderExcluding(primary.providerName)
             if (secondary.providerName != primary.providerName) {
                 // Başka UP provider var → failover
                 metrics.incFailover()

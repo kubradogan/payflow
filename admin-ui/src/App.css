@@ -555,7 +555,7 @@ body::-webkit-scrollbar-thumb,
     gap: 10px; /* 8 -> 10 */
     margin-bottom: 14px;
 
-    max-height: 340px;
+    max-height: 62vh;
     overflow: auto;
 }
 
@@ -639,7 +639,7 @@ body::-webkit-scrollbar-thumb,
 }
 
 .login-card {
-    width: 460px;              /* 360 -> 460 */
+    width: 540px;              /* 360 -> 460 */
     max-width: 90vw;           /* küçük ekranlarda taşmasın */
     padding: 28px 26px 22px;   /* iç boşlukları arttırdık */
     border-radius: 24px;
@@ -852,11 +852,12 @@ body::-webkit-scrollbar-thumb,
     padding: 6px 10px; /* modalda daha sıkı görünüm */
 }
 
-/* Routing decisions modal – daha geniş ve okunaklı */
 .modal.routing-modal {
-    width: 720px;        /* 460 -> 720 gibi düşün, modalı büyütüyoruz */
-    max-width: 95vw;
-    font-size: 16px;     /* metin biraz daha büyük */
+    width: 860px;
+    max-width: 96vw;
+    max-height: 82vh;
+    font-size: 16px;
+    padding: 22px 24px 18px;
 }
 
 .login-form .btn-primary {
