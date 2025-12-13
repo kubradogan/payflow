@@ -1,7 +1,15 @@
+# dependencies
 **/node_modules/
+
+# IDE
 **/.idea/
-.gradle/
-build/
-out/
-**/build/
+**/*.iml
+.vscode/
+
+# OS
 .DS_Store
+
+# Gradle / build outputs
+.gradle/
+**/build/
+out/
