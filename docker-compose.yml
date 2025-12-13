@@ -13,7 +13,7 @@ services:
     volumes:
       - pf_pg:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d payflow"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d payflow" ]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -24,10 +24,40 @@ services:
     ports:
       - "6380:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 20
+
+  payflow-api:
+    build:
+      context: ./payflow-api
+    container_name: payflow-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payflow
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      PAYFLOW_WEBHOOK_STRIPE_SECRET: dev-webhook-secret
+
+  admin-ui:
+    build:
+      context: ./admin-ui
+      args:
+        REACT_APP_API_BASE_URL: http://localhost:8080
+    container_name: payflow-admin-ui
+    depends_on:
+      - payflow-api
+    ports:
+      - "3000:80"
 
 volumes:
   pf_pg:

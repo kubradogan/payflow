@@ -17,7 +17,7 @@ import java.util.UUID
 import kotlin.collections.isNotEmpty
 
 @SpringBootTest
-class PayflowApiApplicationTests {
+class PayflowApiApplicationTests : TestContainersConfig() {
 
     @Autowired
     lateinit var paymentService: PaymentService
@@ -40,33 +40,33 @@ class PayflowApiApplicationTests {
     @Autowired
     lateinit var decisionRepo: PaymentDecisionRepository
 
-//    @BeforeEach
-//    fun cleanState() {
-//        // Her testten önce DB ve Redis temizle
-//     paymentRepository.deleteAll()
-//
-//        val keys = redisTemplate.keys("idem:*")
-//        if (!keys.isNullOrEmpty()) {
-//            redisTemplate.delete(keys)
-//        }
-//    }
+    @BeforeEach
+    fun cleanState() {
+        // Her testten önce DB ve Redis temizle
+     paymentRepository.deleteAll()
+
+        val keys = redisTemplate.keys("idem:*")
+        if (!keys.isNullOrEmpty()) {
+            redisTemplate.delete(keys)
+        }
+    }
 
     @Test
     fun contextLoads() {
         // boş test
     }
 
-//    @Test
-//    fun `same idempotency key creates single payment`() {
-//        val key = "idem-test-123"
-//        val req = PaymentRequest(amount = 100, currency = "EUR", idempotencyKey = key)
-//
-//        val first = paymentService.process(req)
-//        val second = paymentService.process(req)
-//
-//        assertEquals(first.paymentId, second.paymentId, "Idempotent çağrılar aynı paymentId'yi döndürmeli")
-//        assertEquals(1, paymentRepository.count(), "Veritabanında tek bir payment kaydı olmalı")
-//    }
+    @Test
+    fun `same idempotency key creates single payment`() {
+        val key = "idem-test-123"
+        val req = PaymentRequest(amount = 100, currency = "EUR", idempotencyKey = key)
+
+        val first = paymentService.process(req)
+        val second = paymentService.process(req)
+
+        assertEquals(first.paymentId, second.paymentId, "Idempotent çağrılar aynı paymentId'yi döndürmeli")
+        assertEquals(1, paymentRepository.count(), "Veritabanında tek bir payment kaydı olmalı")
+    }
 
     @Test
     fun `router avoids down provider`() {
