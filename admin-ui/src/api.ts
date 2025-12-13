@@ -36,22 +36,15 @@ async function doFetch(url: string, init: RequestInit = {}): Promise<Response> {
     });
 
     if (res.status === 401) {
-        // Token bozuk / süresi dolmuş tamamen logout ol
         clearCredentials();
-        //sayfayı yenile, App state'i baştan LoginView'e düşecek
-        window.location.reload();
         throw new Error("Unauthorized");
     }
-
     return res;
 }
 
 async function handleJson<T>(res: Response): Promise<T> {
     if (res.status === 401) {
-        // Auth bitmiş, temizle ve login ekranına dön
         clearCredentials();
-        // basit çözüm: sayfayı login’e döndür
-        window.location.href = "/";
         throw new Error("Unauthorized");
     }
 
