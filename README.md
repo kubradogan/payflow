@@ -5,9 +5,8 @@ This project is a full-stack payment orchestration system developed for the HDip
 ## Prerequisites
 - Docker Desktop (Mac / Windows / Linux)
 
-## How to Run (One Command)
-
-
+## How to Run
+`cd payflow`
 `docker compose up --build`
 
 ## Stop / Clean
