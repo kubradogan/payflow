@@ -7,11 +7,11 @@ This project is a full-stack payment orchestration system developed for the HDip
 
 ## How to Run
 `cd payflow`
+
 `docker compose up --build`
 
 ## Stop / Clean
-docker compose down -v
-
+`docker compose down -v`
 
 UI: http://localhost:3000
 API Swagger: http://localhost:8080/swagger-ui.html
