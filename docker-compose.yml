@@ -5,14 +5,18 @@ services:
     image: postgres:16
     container_name: payflow-postgres
     environment:
+      # Local development database credentials
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: payflow
     ports:
+      # Exposes Postgres on localhost:5434 to avoid clashing with a local Postgres install
       - "5434:5432"
     volumes:
+      # Persists database data between container restarts
       - pf_pg:/var/lib/postgresql/data
     healthcheck:
+      # Wait until Postgres is ready before starting dependent services
       test: [ "CMD-SHELL", "pg_isready -U postgres -d payflow" ]
       interval: 5s
       timeout: 3s
@@ -22,8 +26,10 @@ services:
     image: redis:7
     container_name: payflow-redis
     ports:
+      # Exposes Redis on localhost:6380 to avoid clashing with a local Redis install
       - "6380:6379"
     healthcheck:
+      # Simple readiness check for Redis
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
@@ -31,33 +37,42 @@ services:
 
   payflow-api:
     build:
+      # Builds the Spring Boot API image from the backend folder
       context: ./payflow-api
     container_name: payflow-api
     depends_on:
+      # Starts the API only after Postgres and Redis report healthy
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     ports:
+      # Exposes the API on localhost:8080
       - "8080:8080"
     environment:
+      # Uses Docker network hostnames to reach Postgres and Redis containers
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payflow
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      # Secret used by the demo webhook endpoint for HMAC verification
       PAYFLOW_WEBHOOK_STRIPE_SECRET: dev-webhook-secret
 
   admin-ui:
     build:
+      # Builds the React admin UI and bakes the API base URL into the frontend build
       context: ./admin-ui
       args:
         REACT_APP_API_BASE_URL: http://localhost:8080
     container_name: payflow-admin-ui
     depends_on:
+      # UI depends on the API being available
       - payflow-api
     ports:
+      # Serves the built UI via Nginx on localhost:3000
       - "3000:80"
 
 volumes:
+  # Named volume for Postgres data
   pf_pg:

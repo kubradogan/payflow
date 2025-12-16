@@ -1,20 +1,28 @@
 server:
+  # HTTP port used by the Spring Boot application
   port: 8080
 
 spring:
   datasource:
+    # PostgreSQL connection used for payment and routing persistence
     url: jdbc:postgresql://localhost:5434/payflow
     username: postgres
     password: postgres
+
   jpa:
     hibernate:
+      # Automatically updates the schema during development
       ddl-auto: update
     properties:
       hibernate:
+        # Improves SQL readability in logs
         format_sql: true
+    # Prevents lazyloading outside transaction boundaries
     open-in-view: false
+
   data:
     redis:
+      # Redis instance used for idempotency locking and shortlived state
       host: localhost
       port: 6380
 
@@ -22,16 +30,19 @@ management:
   endpoints:
     web:
       exposure:
+        # Exposes all actuator endpoints for local monitoring and demo
         include: "*"
 
 logging:
   pattern:
+    # Adds correlation id to log level output for request tracing
     level: "%5p [cid=%X{cid}]"
 
 resilience4j:
   circuitbreaker:
     instances:
       stripe:
+        # Circuit breaker configuration for the Stripe stub provider
         slidingWindowType: COUNT_BASED
         slidingWindowSize: 20
         failureRateThreshold: 50
@@ -40,6 +51,7 @@ resilience4j:
         automaticTransitionFromOpenToHalfOpenEnabled: true
 
       mockpsp:
+        # Circuit breaker configuration for the Mock PSP used in failover demos
         slidingWindowType: COUNT_BASED
         slidingWindowSize: 20
         failureRateThreshold: 50
@@ -50,6 +62,6 @@ resilience4j:
 payflow:
   webhook:
     stripe:
-      # Local dev/test için dummy secret.
-      # Gerçek ortamda environment variable üzerinden override edilmeli.
+      # Dummy secret used for local webhook signature verification
+      # In real environments this should be overridden via environment variables
       secret: "dev-webhook-secret"

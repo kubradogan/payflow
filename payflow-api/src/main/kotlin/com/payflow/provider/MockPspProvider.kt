@@ -11,18 +11,19 @@ class MockPspProvider(
     override fun charge(amount: Long, currency: String, idempotencyKey: String): ProviderResult {
         val cfg = state.config
 
-        //Force timeout senaryosu: failover tetiklemek için
+        // Forced timeout used to demonstrate failover behaviour
         if (cfg.forceTimeout) {
-            // < 2s içinde failover istiyoruz 800ms gecikme simüle et
+            // Delay kept below 2 seconds to trigger failover quickly
             Thread.sleep(800)
             throw RuntimeException("MockPSP forced timeout for failover demo")
         }
 
-        //Normal latency simulasyonu
+        // Optional artificial latency to simulate slow provider response
         if (cfg.addLatencyMs > 0) {
             Thread.sleep(cfg.addLatencyMs.toLong())
         }
-        //Random failure
+
+        // Random failure simulation based on configured failure rate
         val rnd = Math.random()
         val failed = rnd < cfg.failureRate
         return if (failed) {

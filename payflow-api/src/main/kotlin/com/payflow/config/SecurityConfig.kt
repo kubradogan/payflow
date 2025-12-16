@@ -15,12 +15,24 @@ import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 
+/*
+ * Security configuration for the PayFlow application.
+ * Defines authentication, authorization rules and CORS settings.
+ */
 @Configuration
 class SecurityConfig {
 
+    /*
+     * Password encoder used for hashing admin credentials.
+     * BCrypt is sufficient for demo and development purposes.
+     */
     @Bean
     fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
 
+    /*
+     * In-memory user store for administrative access.
+     * This is intentionally simple and suitable for a demo environment.
+     */
     @Bean
     fun userDetailsService(passwordEncoder: PasswordEncoder): UserDetailsService {
         val admin = User.withUsername("admin")
@@ -31,11 +43,15 @@ class SecurityConfig {
         return InMemoryUserDetailsManager(admin)
     }
 
+    /*
+     * CORS configuration allowing requests from the React development server.
+     * Required for the Admin UI to communicate with the backend.
+     */
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val config = CorsConfiguration()
 
-        // React dev server
+        // React development server origin
         config.allowedOriginPatterns = listOf("http://localhost:3000")
         config.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS")
         config.allowedHeaders = listOf("*")
@@ -47,24 +63,28 @@ class SecurityConfig {
         return source
     }
 
+    /*
+     * Main Spring Security filter chain.
+     * Defines which endpoints are public and which require authentication.
+     */
     @Bean
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
         http
+            // CSRF disabled as the system exposes stateless REST APIs
             .csrf { it.disable() }
 
-            // Burada sadece .cors {} diyoruz; Spring yukarıdaki
-            // 'corsConfigurationSource' bean’ini kendisi buluyor.
+            // Enables CORS using the configuration defined above
             .cors { }
 
             .authorizeHttpRequests { auth ->
                 auth
-                    // Preflight istekleri HER YERDE serbest
+                    // Always allow preflight (CORS OPTIONS) requests
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                    // Admin paneli sadece ADMIN
+                    // Admin endpoints require ADMIN role
                     .requestMatchers("/admin/**").hasRole("ADMIN")
 
-                    // Public API'ler
+                    // Public endpoints (payment API, docs, webhooks, metrics)
                     .requestMatchers(
                         "/payments/**",
                         "/v3/api-docs/**",
@@ -74,8 +94,10 @@ class SecurityConfig {
                         "/webhooks/**"
                     ).permitAll()
 
+                    // Any other request is allowed by default
                     .anyRequest().permitAll()
             }
+            // HTTP Basic authentication for admin access
             .httpBasic(withDefaults())
 
         return http.build()

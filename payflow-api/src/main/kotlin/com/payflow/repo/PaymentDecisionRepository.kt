@@ -6,6 +6,6 @@ import java.util.UUID
 
 interface PaymentDecisionRepository : JpaRepository<PaymentDecision, UUID> {
 
-    // Routing history'yi decidedAt artan sırada al
+    // Returns routing decisions for a payment ordered by decision time
     fun findByPaymentIdOrderByDecidedAtAsc(paymentId: UUID): List<PaymentDecision>
 }

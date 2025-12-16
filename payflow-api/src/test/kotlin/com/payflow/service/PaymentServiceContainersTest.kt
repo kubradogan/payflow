@@ -17,6 +17,8 @@ import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.junit.jupiter.api.Disabled
 
+// Endtoend style test using real Postgres + Redis containers
+// Kept disabled for normal CI runs because it is slower and requires Docker
 @Disabled("Testcontainers E2E – optional, runs only locally if configured")
 @SpringBootTest
 @Testcontainers
@@ -29,6 +31,7 @@ class PaymentServiceContainersTest @Autowired constructor(
 ) {
 
     companion object {
+        // Ephemeral PostgreSQL used for persistence verification
         @Container
         @JvmStatic
         val postgres: PostgreSQLContainer<Nothing> =
@@ -38,6 +41,7 @@ class PaymentServiceContainersTest @Autowired constructor(
                 withPassword("payflow")
             }
 
+        // Ephemeral Redis used for idempotency lock and result storage
         @Container
         @JvmStatic
         val redis: GenericContainer<Nothing> =
@@ -45,6 +49,7 @@ class PaymentServiceContainersTest @Autowired constructor(
                 withExposedPorts(6379)
             }
 
+        // Inject container connection details into Spring Boot at runtime
         @JvmStatic
         @DynamicPropertySource
         fun registerProperties(registry: DynamicPropertyRegistry) {
@@ -59,9 +64,11 @@ class PaymentServiceContainersTest @Autowired constructor(
 
     @Test
     fun `happy path payment is processed once per idempotency key`() {
+        // Both providers available for normal routing
         healthRegistry.set("stripe", true)
         healthRegistry.set("mockpsp", true)
 
+        // MockPSP behaves deterministically for this test
         mockState.config.failureRate = 0.0
         mockState.config.addLatencyMs = 0
         mockState.config.forceTimeout = false
@@ -74,6 +81,7 @@ class PaymentServiceContainersTest @Autowired constructor(
             idempotencyKey = key
         )
 
+        // Same request twice should return the same persisted payment
         val resp1 = paymentService.process(req)
         val resp2 = paymentService.process(req)
 
@@ -83,9 +91,11 @@ class PaymentServiceContainersTest @Autowired constructor(
 
     @Test
     fun `failover works when primary mockpsp times out`() {
+        // Keep both providers UP so a secondary provider exists
         healthRegistry.set("stripe", true)
         healthRegistry.set("mockpsp", true)
 
+        // Force MockPSP to throw to trigger failover behaviour
         mockState.config.failureRate = 0.0
         mockState.config.addLatencyMs = 0
         mockState.config.forceTimeout = true
@@ -100,8 +110,11 @@ class PaymentServiceContainersTest @Autowired constructor(
 
         val resp = paymentService.process(req)
 
+        // Expect Stripe to be used after MockPSP fails
         Assertions.assertEquals("stripe", resp.provider)
         Assertions.assertEquals("SUCCEEDED", resp.status)
+
+        // Failover counter should have increased
         Assertions.assertTrue(metrics.failoverCount() >= 1L)
     }
 }

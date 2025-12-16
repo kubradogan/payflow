@@ -10,6 +10,7 @@ import java.util.UUID
 
 interface PaymentRepository : JpaRepository<Payment, UUID> {
 
+    // Native query used for admin payment listing with optional filters
     @Query(
         value = """
         SELECT * FROM payments
@@ -38,6 +39,7 @@ interface PaymentRepository : JpaRepository<Payment, UUID> {
         pageable: Pageable
     ): Page<Payment>
 
+    // Used for database-level idempotency check
     fun findByIdempotencyKey(idempotencyKey: String): Payment?
 
 }

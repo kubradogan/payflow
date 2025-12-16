@@ -7,9 +7,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 @Component
 class ProviderStatsRegistry {
 
-    /**
-     * Dışarıya expose ettiğimiz immutable görünüm
-     */
+    // Immutable view exposed to other layers
     data class Stat(
         val success: Long,
         val fail: Long,
@@ -17,9 +15,7 @@ class ProviderStatsRegistry {
         val latencies: List<Long>
     )
 
-    /**
-     * İçeride mutable tuttuğumuz state
-     */
+    // Internal mutable state used for accumulation
     private data class MutableStat(
         var success: Long = 0,
         var fail: Long = 0,
@@ -28,12 +24,10 @@ class ProviderStatsRegistry {
         val latencies: MutableList<Long> = CopyOnWriteArrayList()
     )
 
+    // Holds runtime statistics per provider
     private val stats = ConcurrentHashMap<String, MutableStat>()
 
-    /**
-     * Router üzerinden her çağrı sonrası buraya düşüyor:
-     * router.report(providerName, success, latencyMs)
-     */
+    // Called after each provider invocation to record outcome and latency
     fun report(providerName: String, success: Boolean, latencyMs: Long) {
         val s = stats.computeIfAbsent(providerName) { MutableStat() }
         synchronized(s) {
@@ -44,9 +38,7 @@ class ProviderStatsRegistry {
         }
     }
 
-    /**
-     * EnhancedRouter içindeki skor hesaplama için tek servisin snapshot'ı
-     */
+    // Returns a snapshot used by the router scoring logic
     fun get(providerName: String): Stat {
         val s = stats[providerName] ?: MutableStat()
         val avg = if (s.count == 0L) 0L else s.totalLatencyMs / s.count
@@ -58,9 +50,7 @@ class ProviderStatsRegistry {
         )
     }
 
-    /**
-     * Admin /metrics için tüm provider'ların anlık snapshot'ı
-     */
+    // Returns a full snapshot for admin metrics endpoint
     fun snapshot(): Map<String, Stat> {
         return stats.mapValues { (_, s) ->
             val avg = if (s.count == 0L) 0L else s.totalLatencyMs / s.count

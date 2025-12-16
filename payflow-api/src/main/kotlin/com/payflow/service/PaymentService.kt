@@ -37,7 +37,7 @@ class PaymentService(
     fun process(req: PaymentRequest): PaymentResponse {
         val key = req.idempotencyKey
 
-        // 1) Idempotent tekrar kontrolü
+        //Fast path for repeated requests using the same idempotency key
         repo.findByIdempotencyKey(key)?.let { existing ->
             return PaymentResponse.from(
                 id = existing.id,
@@ -47,14 +47,14 @@ class PaymentService(
             )
         }
 
-        // 2) Idempotency kilidi (Redis)
+        //Redis lock to avoid concurrent processing for the same key
         if (!idem.tryAcquire(key, "processing")) {
             val existing = repo.findByIdempotencyKey(key)
                 ?: throw IllegalStateException("Idempotent request in progress, please retry")
             return PaymentResponse.from(existing.id, existing.status, existing.provider, existing.message)
         }
 
-        // 3) Primary provider seçimi
+        //Select primary provider based on router scoring and health status
         val primary = router.chooseProvider()
         logger.info("Chosen PRIMARY provider={} for idempotencyKey={}", primary.providerName, key)
 
@@ -65,15 +65,17 @@ class PaymentService(
             provider = primary.providerName,
             status = "PENDING"
         )
+
+        // Persist the initial record so the request becomes observable and traceable
         try {
             p = repo.save(p)
         } catch (ex: DataIntegrityViolationException) {
-            // Aynı idempotencyKey ile başka thread/process bizden önce insert ettiyse
+            // Another request inserted the same idempotency key first so return that stored result
             val existing = repo.findByIdempotencyKey(key) ?: throw ex
             return PaymentResponse.from(existing.id, existing.status, existing.provider, existing.message)
         }
 
-        // Primary routing kararı için audit kaydı
+        // Store the initial routing decision for audit and later inspection in the admin UI
         decisionRepo.save(
             PaymentDecision(
                 paymentId = p.id,
@@ -85,7 +87,7 @@ class PaymentService(
         val result: ProviderResult
 
         try {
-            // 4) Primary denemesi (Resilience4j circuit breaker ile)
+            //Primary attempt wrapped with a circuit breaker and latency measurement
             val start = System.nanoTime()
             result = callProviderWithCircuitBreaker(
                 primary.providerName,
@@ -97,18 +99,18 @@ class PaymentService(
             val latencyMs = (System.nanoTime() - start) / 1_000_000
             router.report(primary.providerName, result.success, latencyMs)
 
+            // Provider returned a business decline not a runtime exception
             if (!result.success) {
-                // Provider decline hata metriği
                 metrics.recordError("primary-decline")
             }
         } catch (ex: Exception) {
-            // Primary çağrısı sırasında exception oluştu
+            // Primary failed with an exception so attempt failover if another provider is available
             metrics.recordError("primary-exception")
             router.report(primary.providerName, false, 5_000)
 
             val secondary = router.chooseProviderExcluding(primary.providerName)
             if (secondary.providerName != primary.providerName) {
-                // Başka UP provider var → failover
+                // Failover path: record the event and store a second routing decision
                 metrics.incFailover()
 
                 decisionRepo.save(
@@ -135,11 +137,13 @@ class PaymentService(
                     metrics.recordError("secondary-decline")
                 }
 
+                // Update payment record with final outcome and the provider that actually processed it
                 p.provider = secondary.providerName
                 p.status = if (r2.success) "SUCCEEDED" else "FAILED"
                 p.message = r2.message
                 p = repo.save(p)
 
+                // Store final reference so future retries return the same outcome
                 idem.setResult(key, p.id.toString())
 
                 logger.info(
@@ -152,7 +156,7 @@ class PaymentService(
 
                 return PaymentResponse.from(p.id, p.status, p.provider, p.message)
             } else {
-                // Başka UP provider yok → primary fail + NO FAILOVER metriği
+                // No alternative provider available so fail the payment and record the reason
                 metrics.recordError("primary-decline-no-failover")
 
                 p.status = "FAILED"
@@ -164,13 +168,13 @@ class PaymentService(
             }
         }
 
-        // 5) Primary path başarılı veya decline (exception OLMADAN)
+        //Primary completed without exceptions so finalise the payment state
         p.status = if (result.success) "SUCCEEDED" else "FAILED"
         p.message = result.message
         p = repo.save(p)
 
+        // Decline without exception means no failover was executed for this request
         if (!result.success) {
-            // Buraya ancak: exception yok, failover yok, provider success=false ise geliyoruz
             metrics.recordError("primary-decline-no-failover")
         }
 
@@ -179,23 +183,27 @@ class PaymentService(
         return PaymentResponse.from(p.id, p.status, p.provider, p.message)
     }
 
+    // Public read endpoint for retrieving an existing payment by its UUID
     fun get(id: String): PaymentResponse {
         val entity = repo.findById(UUID.fromString(id)).orElseThrow()
         return PaymentResponse.from(entity.id, entity.status, entity.provider, entity.message)
     }
 
+    // Admin listing endpoint with basic pagination and optional filtering
     fun searchPayments(
         query: String?,
         status: String?,
         page: Int,
         size: Int
     ): PaymentPageResponse {
+        // Normalise inputs so empty values behave like no filter
         val effectiveQuery = query?.takeIf { it.isNotBlank() }
         val effectiveStatus = status?.takeIf { it.isNotBlank() && it != "ALL" }
 
         val pageable = PageRequest.of(page, size)
         val resultPage = repo.searchPayments(effectiveQuery, effectiveStatus, pageable)
 
+        // Map persistence entities into API DTOs used by the admin UI
         val items = resultPage.content.map {
             PaymentListItem(
                 id = it.id,
@@ -217,6 +225,7 @@ class PaymentService(
         )
     }
 
+    // Executes a provider call under a named Resilience4j circuit breaker instance
     private fun callProviderWithCircuitBreaker(
         providerName: String,
         provider: PaymentsProvider,

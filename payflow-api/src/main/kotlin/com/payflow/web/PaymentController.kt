@@ -12,10 +12,12 @@ import org.springframework.web.bind.annotation.*
 class PaymentController(
     private val service: PaymentService
 ) {
+    // Accepts a new payment request and delegates processing to the service layer
     @PostMapping
     fun create(@Valid @RequestBody req: PaymentRequest): ResponseEntity<PaymentResponse> =
         ResponseEntity.ok(service.process(req))
 
+    // Retrieves an existing payment by its unique identifier
     @GetMapping("/{id}")
     fun get(@PathVariable id: String): ResponseEntity<PaymentResponse> =
         ResponseEntity.ok(service.get(id))

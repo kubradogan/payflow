@@ -12,11 +12,17 @@ import java.util.*
 class CorrelationFilter : OncePerRequestFilter() {
     override fun doFilterInternal(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
         val cid = req.getHeader("X-Correlation-Id") ?: UUID.randomUUID().toString()
+
+        // Store correlation id in MDC so it appears in logs
         MDC.put("cid", cid)
+
+        // Return the same correlation id in the response header
         res.setHeader("X-Correlation-Id", cid)
+
         try {
             chain.doFilter(req, res)
         } finally {
+            // Clean up MDC to avoid leaking data between requests
             MDC.remove("cid")
         }
     }

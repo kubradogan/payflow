@@ -42,8 +42,8 @@ class PayflowApiApplicationTests : TestContainersConfig() {
 
     @BeforeEach
     fun cleanState() {
-        // Her testten önce DB ve Redis temizle
-     paymentRepository.deleteAll()
+        // Ensures a clean database and Redis state before each test
+        paymentRepository.deleteAll()
 
         val keys = redisTemplate.keys("idem:*")
         if (!keys.isNullOrEmpty()) {
@@ -53,7 +53,7 @@ class PayflowApiApplicationTests : TestContainersConfig() {
 
     @Test
     fun contextLoads() {
-        // boş test
+        // Verifies that the Spring application context starts successfully
     }
 
     @Test
@@ -64,13 +64,20 @@ class PayflowApiApplicationTests : TestContainersConfig() {
         val first = paymentService.process(req)
         val second = paymentService.process(req)
 
-        assertEquals(first.paymentId, second.paymentId, "Idempotent çağrılar aynı paymentId'yi döndürmeli")
-        assertEquals(1, paymentRepository.count(), "Veritabanında tek bir payment kaydı olmalı")
+        assertEquals(
+            first.paymentId,
+            second.paymentId,
+            "Repeated calls with the same idempotency key must return the same paymentId"
+        )
+
+        assertEquals(
+            1, paymentRepository.count(), "Only one payment record should exist in the database"
+        )
     }
 
     @Test
     fun `router avoids down provider`() {
-        // Stripe DOWN MockPSP UP
+        // Simulates a scenario where Stripe is unavailable
         health.set("stripe", false)
         health.set("mockpsp", true)
 
@@ -78,33 +85,39 @@ class PayflowApiApplicationTests : TestContainersConfig() {
         mockState.config.addLatencyMs = 0
         mockState.config.forceTimeout = false
 
-        val req = PaymentRequest(amount = 120, currency = "EUR", idempotencyKey = "health-1")
+        val req = PaymentRequest(
+            amount = 120, currency = "EUR", idempotencyKey = "health-1"
+        )
+
         val resp = paymentService.process(req)
 
-        assertEquals("mockpsp", resp.provider, "Stripe DOWN iken isteklerin mockpsp'ye yönlenmesi gerekir")
+        assertEquals(
+            "mockpsp", resp.provider, "Requests must be routed to mockpsp when Stripe is down"
+        )
     }
 
     @Test
     fun `error metrics captured when primary provider fails without failover`() {
-        // Stripe DOWN, sadece MockPSP ayakta
+        // Only mockpsp is available and it always fails
         health.set("stripe", false)
         health.set("mockpsp", true)
 
-        mockState.config.failureRate = 1.0   // tüm çağrılar fail
+        mockState.config.failureRate = 1.0
         mockState.config.addLatencyMs = 0
         mockState.config.forceTimeout = false
 
         val key = "err-1"
-        val req = PaymentRequest(amount = 130, currency = "EUR", idempotencyKey = key)
+        val req = PaymentRequest(
+            amount = 130, currency = "EUR", idempotencyKey = key
+        )
 
         val resp = paymentService.process(req)
 
-        // Beklenen domain davranışı: tek provider mockpsp ve sonuç FAILED
         assertEquals("mockpsp", resp.provider)
         assertEquals("FAILED", resp.status)
 
-        // Metrik tarafını sadece "çalışıyor" diye sanity check seviyesinde bırakıyoruz.
-        // Assert yok; raporda metrik kanıtını /admin/metrics screenshot'ıyla göstereceksin.
+        // Metrics are checked at a sanity level
+        // Detailed evidence is provided via /admin/metrics screenshots in the report
         val dist = metrics.errorDistribution()
         println("errorDistribution in test = $dist")
     }
@@ -112,11 +125,16 @@ class PayflowApiApplicationTests : TestContainersConfig() {
     @Test
     fun `routing decision is persisted for payment`() {
         val key = "decision-test-1"
-        val req = PaymentRequest(amount = 100, currency = "EUR", idempotencyKey = key)
+        val req = PaymentRequest(
+            amount = 100, currency = "EUR", idempotencyKey = key
+        )
 
         val resp = paymentService.process(req)
 
         val decisions = decisionRepo.findByPaymentIdOrderByDecidedAtAsc(UUID.fromString(resp.paymentId))
-        assertTrue(decisions.isNotEmpty(), "Routing decision should be stored for this payment")
+
+        assertTrue(
+            decisions.isNotEmpty(), "A routing decision must be stored for each processed payment"
+        )
     }
 }

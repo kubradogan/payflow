@@ -12,6 +12,7 @@ import com.payflow.service.PaymentService
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
 
+// Aggregated metrics returned to the admin dashboard
 data class AdminMetricsResponse(
     val successRate: Double,
     val p95LatencyMs: Long,
@@ -30,6 +31,7 @@ class AdminController(
     private val decisionRepo: PaymentDecisionRepository
 ) {
 
+    // Updates fault injection settings for the mock payment provider
     @PostMapping("/mockpsp/config")
     fun setMockConfig(@RequestBody cfg: FaultConfig) = run {
         mockState.config.failureRate = cfg.failureRate.coerceIn(0.0, 1.0)
@@ -38,6 +40,7 @@ class AdminController(
         mockState.config
     }
 
+    // Marks a provider as up or down for routing and failover testing
     @PostMapping("/providers/{name}/{status}")
     fun setProviderStatus(@PathVariable name: String, @PathVariable status: String) = run {
         val up = status.equals("up", true)
@@ -45,9 +48,11 @@ class AdminController(
         mapOf("provider" to name, "up" to up)
     }
 
+    // Returns current availability status of all providers
     @GetMapping("/providers")
     fun getProviders() = health.snapshot()
 
+    // Returns aggregated runtime metrics for monitoring and evaluation
     @GetMapping("/metrics")
     fun getMetrics(): AdminMetricsResponse {
         val snapshot = stats.snapshot()
@@ -69,6 +74,7 @@ class AdminController(
         )
     }
 
+    // Computes the 95th percentile latency from collected samples
     private fun computeP95(latencies: List<Long>): Long {
         if (latencies.isEmpty()) return 0
         val sorted = latencies.sorted()
@@ -76,6 +82,7 @@ class AdminController(
         return sorted[index]
     }
 
+    // Returns paginated payment list for admin inspection
     @GetMapping("/payments")
     fun getPayments(
         @RequestParam(required = false, name = "query") query: String?,
@@ -86,6 +93,7 @@ class AdminController(
         return paymentService.searchPayments(query, status, page, size)
     }
 
+    // Returns routing decision history for a specific payment
     @GetMapping("/payments/{id}/decisions")
     fun getPaymentDecisions(@PathVariable id: String): List<PaymentDecisionDto> {
         val paymentId = UUID.fromString(id)
