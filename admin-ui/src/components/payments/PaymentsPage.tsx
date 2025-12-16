@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, {useEffect, useState} from "react";
 import "../../App.css";
 import {
     fetchPayments,
@@ -7,12 +7,17 @@ import {
 } from "../../api";
 
 type PaymentsPageProps = {
+    // Triggers a reload when parent changes this value
     reloadKey: number;
+
+    // Opens the new payment modal in the parent
     onNewPaymentClick: () => void;
+
+    // Opens routing decision history for a given payment
     onViewRouting: (paymentId: string) => void;
 };
 
-// Amount cent cinsinden geliyo
+// Backend stores amounts in cents ui displays formatted currency values
 function formatAmount(amount: number, currency: string) {
     const value = amount / 100;
     return new Intl.NumberFormat("en-IE", {
@@ -23,6 +28,7 @@ function formatAmount(amount: number, currency: string) {
     }).format(value);
 }
 
+// Converts iso timestamp from API into a readable local datetime string
 function formatDate(iso: string) {
     return new Date(iso).toLocaleString();
 }
@@ -32,26 +38,35 @@ export function PaymentsPage({
                                  onNewPaymentClick,
                                  onViewRouting,
                              }: PaymentsPageProps) {
+    // Page data returned by /admin/payments
     const [data, setData] = useState<PaymentPage | null>(null);
+
+    // Basic UI state for loading and error messages
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Filters are applied via backend query parameters
     const [searchText, setSearchText] = useState("");
     const [statusFilter, setStatusFilter] =
         useState<"ALL" | "SUCCEEDED" | "FAILED" | "PENDING">("ALL");
+
+    // Pagination state kept on the client side
     const [page, setPage] = useState(0);
     const pageSize = 10;
 
+    // Loads payments using current filters and pagination
     const load = async () => {
         try {
             setLoading(true);
             setError(null);
+
             const resp = await fetchPayments({
                 page,
                 size: pageSize,
                 query: searchText,
                 status: statusFilter,
             });
+
             setData(resp);
         } catch (e: any) {
             setError(e.message ?? "Failed to load payments");
@@ -60,22 +75,26 @@ export function PaymentsPage({
         }
     };
 
+    // Refreshes data when page filter or parent reload key changes
     useEffect(() => {
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, statusFilter, reloadKey]);
 
+    // Applies search text and resets pagination back to first page
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setPage(0);
         load();
     };
 
+    // Table footer calculations
     const total = data?.total ?? 0;
     const from = total === 0 ? 0 : page * pageSize + 1;
     const to = data ? page * pageSize + data.items.length : 0;
     const totalPages = data ? Math.ceil(total / pageSize) : 0;
 
+    // Simple pagelevel KPIs based only on the current page results
     const successCount =
         data?.items.filter((p) => p.status === "SUCCEEDED").length ?? 0;
     const failedCount =
@@ -87,8 +106,8 @@ export function PaymentsPage({
                 <div className="page-title-block">
                     <h1 className="page-title">Recent Payments</h1>
                     <span className="page-subtitle">
-            Inspect, filter and observe routing decisions and outcomes.
-          </span>
+                        Inspect, filter and observe routing decisions and outcomes
+                    </span>
                 </div>
                 <div className="page-actions">
                     <button className="btn-ghost" type="button" onClick={load}>
@@ -113,7 +132,7 @@ export function PaymentsPage({
                                 return formatAmount(0, "EUR");
                             }
 
-                            // currency -> totalCents map'i
+                            // Aggregates totals per currency for mixedcurrency pages
                             const totalsByCurrency: Record<string, number> = {};
 
                             for (const p of data.items) {
@@ -124,12 +143,12 @@ export function PaymentsPage({
                             const entries = Object.entries(totalsByCurrency);
 
                             if (entries.length === 1) {
-                                // Tek currency varsa eskisi gibi göster
+                                // Keeps the display simple when the page uses a single currency
                                 const [currency, cents] = entries[0];
                                 return formatAmount(cents, currency);
                             }
 
-                            // Birden fazla currency: "€6.55 + £1.29" gibi
+                            // When multiple currencies exist show combined formatted totals
                             return entries
                                 .map(([currency, cents]) => formatAmount(cents, currency))
                                 .join(" + ");
@@ -149,7 +168,6 @@ export function PaymentsPage({
                                 return `${data.items.length} payments on this page`;
                             }
 
-                            // Örn: "10 payments in EUR, GBP"
                             return `${data.items.length} payments in ${currencies.join(", ")}`;
                         })()}
                     </div>
@@ -160,11 +178,13 @@ export function PaymentsPage({
                     <div className="kpi-value">{successCount}</div>
                     <div className="kpi-trend">Using current filters</div>
                 </div>
+
                 <div className="kpi-card">
                     <div className="kpi-label">Failed</div>
                     <div className="kpi-value">{failedCount}</div>
                     <div className="kpi-trend">Investigate error causes</div>
                 </div>
+
                 <div className="kpi-card">
                     <div className="kpi-label">Current Page</div>
                     <div className="kpi-value">
@@ -178,9 +198,7 @@ export function PaymentsPage({
                 <div className="card-header">
                     <div>
                         <span className="card-title">Payments</span>
-                        <span className="card-subtitle">
-              &nbsp;Latest activity (paginated)
-            </span>
+                        <span className="card-subtitle">&nbsp;Latest activity (paginated)</span>
                     </div>
                 </div>
 
@@ -212,10 +230,15 @@ export function PaymentsPage({
 
                 {loading && (
                     <div className="loading-center">
-                        <div className="spinner" />
+                        <div className="spinner"/>
                     </div>
                 )}
-                {error && <p className="error" style={{ marginTop: 8 }}>{error}</p>}
+
+                {error && (
+                    <p className="error" style={{marginTop: 8}}>
+                        {error}
+                    </p>
+                )}
 
                 {!loading && !error && (
                     <>
@@ -237,16 +260,18 @@ export function PaymentsPage({
                                 <tbody>
                                 {!data || data.items.length === 0 ? (
                                     <tr>
-                                        <td colSpan={9}>No payments loaded.</td>
+                                        <td colSpan={9}>No payments loaded</td>
                                     </tr>
                                 ) : (
                                     data.items.map((p: PaymentItem) => {
+                                        // Maps payment status to a badge style for quick scanning
                                         const statusClass =
                                             p.status === "SUCCEEDED"
                                                 ? "status-succeeded"
                                                 : p.status === "FAILED"
                                                     ? "status-failed"
                                                     : "status-pending";
+
                                         return (
                                             <tr key={p.id}>
                                                 <td>
@@ -258,9 +283,9 @@ export function PaymentsPage({
                                                 </td>
                                                 <td>{p.currency}</td>
                                                 <td>
-                            <span className={`status-badge ${statusClass}`}>
-                              {p.status}
-                            </span>
+                                                        <span className={`status-badge ${statusClass}`}>
+                                                            {p.status}
+                                                        </span>
                                                 </td>
                                                 <td>{p.provider}</td>
                                                 <td>
@@ -283,28 +308,28 @@ export function PaymentsPage({
                         </div>
 
                         <div className="table-footer">
-              <span>
-                Showing {from}-{to} of {total}
-              </span>
                             <span>
-                <button
-                    type="button"
-                    className="btn-ghost"
-                    disabled={page === 0}
-                    onClick={() => setPage((p) => p - 1)}
-                    style={{ marginRight: 4 }}
-                >
-                  Prev
-                </button>
-                <button
-                    type="button"
-                    className="btn-ghost"
-                    disabled={totalPages === 0 || page >= totalPages - 1}
-                    onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </button>
-              </span>
+                                Showing {from}-{to} of {total}
+                            </span>
+                            <span>
+                                <button
+                                    type="button"
+                                    className="btn-ghost"
+                                    disabled={page === 0}
+                                    onClick={() => setPage((p) => p - 1)}
+                                    style={{marginRight: 4}}
+                                >
+                                    Prev
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn-ghost"
+                                    disabled={totalPages === 0 || page >= totalPages - 1}
+                                    onClick={() => setPage((p) => p + 1)}
+                                >
+                                    Next
+                                </button>
+                            </span>
                         </div>
                     </>
                 )}

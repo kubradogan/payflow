@@ -1,39 +1,39 @@
-/* ==== METRICS PAGE FONT SCALE ==== */
+/* Metrics page specific typography and spacing overrides */
 
 .metrics-page {
-    font-size: 18px; /* genel metin */
+    font-size: 18px; /* Base text size for better readability on metrics view */
 }
 
 .metrics-page .page-title {
-    font-size: 32px;
+    font-size: 32px; /* Prominent page heading */
     font-weight: 600;
 }
 
 .metrics-page .page-subtitle {
-    font-size: 18px;
+    font-size: 18px; /* Supporting description under the title */
     color: var(--text-muted);
 }
 
-/* Kartları biraz daha dolu göster */
+/* Slightly larger cards to emphasize KPI values */
 .metrics-page .metric-card {
     padding: 18px 20px;
 }
 
 .metrics-page .metric-label {
-    font-size: 13px;
+    font-size: 13px; /* Small uppercase labels for KPIs */
     letter-spacing: .18em;
 }
 
 .metrics-page .metric-value {
-    font-size: 28px;  /* 24 -> 28 */
+    font-size: 28px; /* Main KPI number */
     font-weight: 600;
 }
 
 .metrics-page .metric-extra {
-    font-size: 16px;  /* 15 -> 16 */
+    font-size: 16px; /* Contextual helper text under KPIs */
 }
 
-/* Alt taraftaki error distribution kartı */
+/* Styling for the error distribution card section */
 .metrics-page .card .card-title {
     font-size: 18px;
 }

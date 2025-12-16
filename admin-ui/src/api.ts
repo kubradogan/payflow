@@ -1,16 +1,17 @@
 const BASE_URL = process.env.REACT_APP_API_BASE_URL || "http://localhost:8080";
 
-// Global Basic Auth token (Base64)
+// Inmemory copy of the Basic Auth token so we do not Base64 encode on every request
 let authToken: string | null = null;
 
 export function setCredentials(username: string, password: string) {
+    // Basic Auth uses base64(username:password)
     authToken = btoa(`${username}:${password}`);
     localStorage.setItem("authToken", authToken);
 }
 
-// Headers üretici
+// Builds Authorization header if credentials exist
 function authHeader(): HeadersInit | undefined {
-    // Token yoksa localStorage’dan yüklemeyi dene
+    // If the app was refreshed try to restore the token from localStorage
     if (!authToken) {
         const stored = localStorage.getItem("authToken");
         if (stored) {
@@ -18,6 +19,7 @@ function authHeader(): HeadersInit | undefined {
         }
     }
 
+    // If there is no token we send the request without auth and handle 401 in the caller
     if (!authToken) {
         return undefined;// public istek gibi gider401 alırsak FEde yakalar
     }
@@ -25,7 +27,7 @@ function authHeader(): HeadersInit | undefined {
     return {Authorization: `Basic ${authToken}`};
 }
 
-// Ortak fetch helper
+// Shared fetch wrapper that automatically attaches auth (when available)
 async function doFetch(url: string, init: RequestInit = {}): Promise<Response> {
     const res = await fetch(url, {
         ...init,
@@ -35,6 +37,7 @@ async function doFetch(url: string, init: RequestInit = {}): Promise<Response> {
         },
     });
 
+    // If the backend rejects auth clear it and force re-login
     if (res.status === 401) {
         clearCredentials();
         throw new Error("Unauthorized");
@@ -42,6 +45,7 @@ async function doFetch(url: string, init: RequestInit = {}): Promise<Response> {
     return res;
 }
 
+// Reads JSON for successful responses and throws a readable error for failures
 async function handleJson<T>(res: Response): Promise<T> {
     if (res.status === 401) {
         clearCredentials();
@@ -91,6 +95,7 @@ export type AdminMetrics = {
 
 export type ProvidersResponse = Record<string, boolean>;
 
+// Query string builder for pagination and filters
 export async function fetchPayments(
     params: PaymentsQuery = {}
 ): Promise<PaymentPage> {
@@ -115,10 +120,12 @@ export async function fetchPayments(
 }
 
 export async function fetchProviders(): Promise<ProvidersResponse> {
+    // Returns providerName:up/down map from the admin endpoint
     const res = await doFetch(`${BASE_URL}/admin/providers`);
     return handleJson<ProvidersResponse>(res);
 }
 
+// Backend expects up or down as a path parameter
 export async function setProviderStatus(
     name: string,
     up: boolean
@@ -130,10 +137,12 @@ export async function setProviderStatus(
             "Content-Type": "application/json",
         },
     });
-    await handleJson<any>(res);   // body önemli değil
+    // Response body is not used by the UI call is just to ensure it succeeded
+    await handleJson<any>(res);
 }
 
 export async function fetchMetrics(): Promise<AdminMetrics> {
+    // Aggregated KPIs used by the Metrics page
     const res = await doFetch(`${BASE_URL}/admin/metrics`);
     return handleJson<AdminMetrics>(res);
 }
@@ -143,23 +152,24 @@ export async function setMockFaultConfig(cfg: {
     addLatencyMs: number;
     forceTimeout: boolean;
 }): Promise<void> {
+    // Admin endpoint that updates MockPSP behaviour for demos (failures latency timeout)
     const res = await doFetch(`${BASE_URL}/admin/mockpsp/config`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
         body: JSON.stringify(cfg),
-    });
+    })
     await handleJson<any>(res);
 }
 
-// Logout için
+// Clears auth both in memory and in localStorage
 export function clearCredentials() {
     authToken = null;
     localStorage.removeItem("authToken");
 }
 
-// Uygulama açıldığında önceden login var mı kontrolü
+// Used on app start to keep the user logged in after refresh
 export function hasAuthToken(): boolean {
     if (authToken) return true;
     const stored = localStorage.getItem("authToken");
@@ -170,7 +180,6 @@ export function hasAuthToken(): boolean {
     return false;
 }
 
-// Yeni ödeme oluşturmak için
 export type CreatePaymentRequest = {
     amount: number;
     currency: string;
@@ -188,10 +197,10 @@ export type CreatePaymentResult = {
     correlationId: string | null;
 };
 
+// Clientside correlation id helps match UI actions to backend logs via the CorrelationFilter
 export async function createPayment(
     req: CreatePaymentRequest
 ): Promise<CreatePaymentResult> {
-    // İsteğe client-side correlation id üret
     const cid = crypto.randomUUID();
 
     const res = await fetch(`${BASE_URL}/payments`, {
@@ -204,14 +213,15 @@ export async function createPayment(
         body: JSON.stringify(req),
     });
 
+    // Backend returns a PaymentResponse even when status is non-2xx in some cases
     const body: PaymentResponse = await res.json();
 
     if (!res.ok) {
-        // backend hata mesajı varsa yine de fırlat
+        // Prefer backend message if present so the UI shows something meaningful
         throw new Error(body.message || "Failed to create payment");
     }
 
-    // Backend döndürdüyse onu kullan, yoksa kendi ürettiğimizi
+    // Backend echoes the correlation id in the response header if CorrelationFilter is enabled
     const respCid = res.headers.get("X-Correlation-Id");
 
     return {
@@ -226,6 +236,7 @@ export type PaymentDecision = {
     decidedAt: string;
 };
 
+// Loads routing history for a single payment from the admin endpoint
 export async function fetchPaymentDecisions(
     paymentId: string
 ): Promise<PaymentDecision[]> {

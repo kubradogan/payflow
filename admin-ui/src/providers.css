@@ -1,36 +1,36 @@
-/* ==== PROVIDERS PAGE FONT SCALE ==== */
+/* Providers page typography and layout adjustments */
 
 .providers-page {
-    font-size: 18px;
+    font-size: 18px; /* Base text size for the providers view */
 }
 
 .providers-page .page-title {
-    font-size: 32px;
+    font-size: 32px; /* Main heading for the page */
     font-weight: 600;
 }
 
 .providers-page .page-subtitle {
-    font-size: 18px;
+    font-size: 18px; /* Supporting text below the title */
     color: var(--text-muted);
 }
 
-/* Kart içi metinleri büyüt */
+/* Slightly larger text inside provider cards for clarity */
 .providers-page .provider-card {
     font-size: 17px;
 }
 
 .providers-page .provider-status {
-    font-size: 15px;
+    font-size: 15px; /* Secondary status text */
 }
 
-/* Badge’leri büyüt */
+/* More readable health badges */
 .providers-page .badge-up,
 .providers-page .badge-down {
     font-size: 13px;
     padding: 5px 10px;
 }
 
-/* Fault injection kartı */
+/* Fault injection section headings */
 .providers-page .card .card-title {
     font-size: 18px;
 }
@@ -39,7 +39,7 @@
     font-size: 16px;
 }
 
-/* Buton boyutları */
+/* Buttons scaled to match overall page typography */
 .providers-page .btn-primary,
 .providers-page .btn-ghost {
     font-size: 16px;

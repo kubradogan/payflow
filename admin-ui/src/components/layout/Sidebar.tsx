@@ -1,8 +1,10 @@
 import React from "react";
 import "../../App.css";
 
+// Allowed navigation tabs in the admin UI
 export type Tab = "payments" | "providers" | "metrics";
 
+// Centralised tab identifiers to avoid string duplication
 const PAGES = {
     PAYMENTS: "payments" as Tab,
     PROVIDERS: "providers" as Tab,
@@ -14,12 +16,15 @@ type SidebarProps = {
     onChange: (tab: Tab) => void;
 };
 
-export function Sidebar({ active, onChange }: SidebarProps) {
+export function Sidebar({active, onChange}: SidebarProps) {
     return (
         <aside className="app-sidebar">
             <div>
+                {/* Primary navigation section */}
                 <div className="sidebar-section-title">Navigation</div>
+
                 <nav className="sidebar-nav">
+                    {/* Payments page entry */}
                     <button
                         className={
                             "sidebar-item " + (active === PAGES.PAYMENTS ? "active" : "")
@@ -29,6 +34,8 @@ export function Sidebar({ active, onChange }: SidebarProps) {
                         <span className="icon">💳</span>
                         <span className="text">Payments</span>
                     </button>
+
+                    {/* Providers management page entry */}
                     <button
                         className={
                             "sidebar-item " + (active === PAGES.PROVIDERS ? "active" : "")
@@ -38,6 +45,8 @@ export function Sidebar({ active, onChange }: SidebarProps) {
                         <span className="icon">🏦</span>
                         <span className="text">Providers</span>
                     </button>
+
+                    {/* Metrics and monitoring page entry */}
                     <button
                         className={
                             "sidebar-item " + (active === PAGES.METRICS ? "active" : "")
@@ -50,6 +59,7 @@ export function Sidebar({ active, onChange }: SidebarProps) {
                 </nav>
             </div>
 
+            {/* Informational footer section */}
             <div className="sidebar-sub">
                 <strong
                     style={{
@@ -60,10 +70,10 @@ export function Sidebar({ active, onChange }: SidebarProps) {
                 >
                     PayFlow
                 </strong>
-                <span style={{ fontSize: 15 }}>
-          Built as a resilient multi-PSP payment orchestration layer with
-          intelligent routing and automatic failover.
-        </span>
+                <span style={{fontSize: 15}}>
+                    Built as a resilient multi-PSP payment orchestration layer with
+                    intelligent routing and automatic failover
+                </span>
             </div>
         </aside>
     );

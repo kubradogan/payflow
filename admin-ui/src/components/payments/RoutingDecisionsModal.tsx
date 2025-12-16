@@ -4,19 +4,27 @@ import {PaymentDecision} from "../../api";
 
 type RoutingModalStateLike = {
     paymentId: string;
+
+    // Routing audit entries fetched from /admin/payments/{id}/decisions
     decisions: PaymentDecision[];
+
+    // Simple UI state for async fetch
     loading: boolean;
     error: string | null;
 } | null;
 
 type RoutingDecisionsModalProps = {
+    // Null means the modal is closed
     state: RoutingModalStateLike;
+
+    // Parent controls closing the modal
     onClose: () => void;
 };
 
 function prettifyReason(reason: string): string {
-    // score=0.9596000000000001 -> score=0.960
-    // failover:score=0.48000000000000004 -> failover:score=0.480
+    // Normalizes floating numbers inside reason strings for cleaner display in the UI
+    // Example: score=0.9596000000000001 -> score=0.960
+    // Example: failover:score=0.48000000000000004 -> failover:score=0.480
     return reason.replace(
         /(score[=:])([0-9]+\.[0-9]+)/g,
         (_, prefix: string, num: string) => {
@@ -30,6 +38,7 @@ function prettifyReason(reason: string): string {
 }
 
 export function RoutingDecisionsModal({state, onClose}: RoutingDecisionsModalProps) {
+    // Modal is not rendered unless the parent provides a state object
     if (!state) return null;
 
     return (
@@ -54,7 +63,7 @@ export function RoutingDecisionsModal({state, onClose}: RoutingDecisionsModalPro
 
                     {!state.loading && !state.error && state.decisions.length === 0 && (
                         <p style={{fontSize: 14, color: "#9ca3af"}}>
-                            No routing decisions recorded for this payment.
+                            No routing decisions recorded for this payment
                         </p>
                     )}
 
@@ -79,6 +88,7 @@ export function RoutingDecisionsModal({state, onClose}: RoutingDecisionsModalPro
                         </table>
                     )}
                 </div>
+
                 <div className="modal-footer">
                     <button className="btn-ghost" onClick={onClose}>
                         Close

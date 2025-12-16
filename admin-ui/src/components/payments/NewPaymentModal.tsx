@@ -1,10 +1,15 @@
-import React, { useState } from "react";
+import React, {useState} from "react";
 import "../../App.css";
-import { createPayment } from "../../api";
+import {createPayment} from "../../api";
 
 type NewPaymentModalProps = {
+    // Closes the modal without taking action
     onClose: () => void;
+
+    // Notifies parent to refresh payment list after creation
     onCreated: () => void;
+
+    // Displays feedback messages to the user
     notify: (msg: string, type?: "success" | "error") => void;
 };
 
@@ -13,6 +18,8 @@ export function NewPaymentModal({
                                     onCreated,
                                     notify,
                                 }: NewPaymentModalProps) {
+
+    // Local form state
     const [amount, setAmount] = useState<number>(1299);
     const [currency, setCurrency] = useState<string>("EUR");
     const [idem, setIdem] = useState<string>("demo-abc-001");
@@ -20,24 +27,30 @@ export function NewPaymentModal({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Basic client-side validation to avoid invalid requests
         if (!Number.isFinite(amount) || amount <= 0) {
-            notify("Amount must be positive.", "error");
+            notify("Amount must be positive", "error");
             return;
         }
 
         try {
             setSubmitting(true);
+
+            // Calls backend payment API with idempotency support
             const res = await createPayment({
                 amount,
                 currency,
                 idempotencyKey: idem,
             });
 
+            // Extracts relevant fields from backend response
             const corrId = (res as any).correlationId;
             const provider = (res as any).payment.provider;
             const paymentId = (res as any).payment.paymentId;
             const status = (res as any).payment.status;
 
+            // Builds a readable summary for the success modal
             const msgLines = [
                 `Payment ID: ${paymentId}`,
                 `Status: ${status}`,
@@ -47,11 +60,13 @@ export function NewPaymentModal({
 
             notify(msgLines.join("\n"), "success");
 
+            // Refresh list and close modal after success
             onCreated();
             onClose();
         } catch (err: any) {
+            // Displays backend or generic error message
             notify(
-                err?.message ?? "Failed to create payment. Check backend logs.",
+                err?.message ?? "Failed to create payment. Check backend logs",
                 "error"
             );
         } finally {
@@ -60,6 +75,7 @@ export function NewPaymentModal({
     };
 
     return (
+        // Modal overlay preventing background interaction
         <div className="modal-backdrop">
             <div className="modal">
                 <div className="modal-header">
@@ -68,6 +84,7 @@ export function NewPaymentModal({
                         ×
                     </button>
                 </div>
+
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">
                         <div className="field">
@@ -78,6 +95,7 @@ export function NewPaymentModal({
                                 onChange={(e) => setAmount(Number(e.target.value))}
                             />
                         </div>
+
                         <div className="field">
                             <span>Currency</span>
                             <select
@@ -89,11 +107,16 @@ export function NewPaymentModal({
                                 <option value="GBP">GBP</option>
                             </select>
                         </div>
+
                         <div className="field">
                             <span>Idempotency Key</span>
-                            <input value={idem} onChange={(e) => setIdem(e.target.value)} />
+                            <input
+                                value={idem}
+                                onChange={(e) => setIdem(e.target.value)}
+                            />
                         </div>
                     </div>
+
                     <div className="modal-footer">
                         <button
                             type="button"
@@ -103,7 +126,11 @@ export function NewPaymentModal({
                         >
                             Cancel
                         </button>
-                        <button type="submit" className="btn-primary" disabled={submitting}>
+                        <button
+                            type="submit"
+                            className="btn-primary"
+                            disabled={submitting}
+                        >
                             {submitting ? "Submitting…" : "Submit"}
                         </button>
                     </div>

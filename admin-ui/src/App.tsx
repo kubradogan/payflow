@@ -20,13 +20,16 @@ import {
     PaymentDecision
 } from "./api";
 
+// Tab names used by the sidebar and conditional rendering
 type Tab = "payments" | "providers" | "metrics";
 
+// Shared UI feedback type for toast and result modal
 type ToastState = {
     type: "success" | "error";
     message: string;
 } | null;
 
+// Local state for the routing decisions modal
 type RoutingModalState = {
     paymentId: string;
     decisions: PaymentDecision[];
@@ -34,32 +37,49 @@ type RoutingModalState = {
     error: string | null;
 } | null;
 
-
-/* ROOT APP */
-
 function App() {
+    // Persisted login state based on stored Basic Auth token
     const [loggedIn, setLoggedIn] = useState<boolean>(() => hasAuthToken());
+
+    // Current page selected in the sidebar
     const [activeTab, setActiveTab] = useState<Tab>("payments");
+
+    // Modal visibility and reload triggers for the payments table
     const [showNewPayment, setShowNewPayment] = useState(false);
     const [paymentsReloadKey, setPaymentsReloadKey] = useState(0);
+
+    // Lightweight toast for small feedback messages
     const [toast, setToast] = useState<ToastState>(null);
+
+    // Larger modal used to show the created payment result details
     const [resultModal, setResultModal] = useState<ToastState | null>(null);
+
+    // Routing history modal state (lazy-loaded from backend on demand)
     const [routingModal, setRoutingModal] = useState<RoutingModalState>(null);
 
-    // Providers vb. için klasik toast
-    const notifyToast = (message: string, type: "success" | "error" = "success") => {
+    // Small non-blocking toast notification (auto-hides)
+    const notifyToast = (
+        message: string,
+        type: "success" | "error" = "success"
+    ) => {
         setToast({type, message});
+
+        // Keep the toast stable if another message replaces it before timeout
         setTimeout(() => {
-            setToast(prev => (prev && prev.message === message ? null : prev));
+            setToast((prev) => (prev && prev.message === message ? null : prev));
         }, 5000);
     };
 
-    // Sadece yeni payment için kullanılacak modal notify
-    const notifyResultModal = (message: string, type: "success" | "error" = "success") => {
+    // Modalbased notification for the "new payment" flow
+    const notifyResultModal = (
+        message: string,
+        type: "success" | "error" = "success"
+    ) => {
         setResultModal({type, message});
     };
+
+    // Opens the routing decisions modal and fetches the decision history for a payment
     const openRoutingModal = async (paymentId: string) => {
-        // İlk açılışta loading
         setRoutingModal({
             paymentId,
             decisions: [],
@@ -85,16 +105,18 @@ function App() {
         }
     };
 
+    // Closes the routing decisions modal and clears its state
     const closeRoutingModal = () => {
         setRoutingModal(null);
     };
 
-
+    // Clears stored credentials and returns the user to the login screen
     const handleLogout = () => {
         clearCredentials();
         setLoggedIn(false);
     };
 
+    // Gate the entire admin UI behind Basic Auth login
     if (!loggedIn) {
         return <LoginView onSuccess={() => setLoggedIn(true)}/>;
     }
@@ -103,6 +125,7 @@ function App() {
         <div className="app-root">
             <Topbar onLogout={handleLogout}/>
             <Sidebar active={activeTab} onChange={setActiveTab}/>
+
             <main className="app-main">
                 {activeTab === "payments" && (
                     <PaymentsPage
@@ -111,20 +134,21 @@ function App() {
                         onViewRouting={openRoutingModal}
                     />
                 )}
-                {/* Providers, toast kullanmaya devam etsin */}
+
                 {activeTab === "providers" && <ProvidersPage notify={notifyToast}/>}
+
                 {activeTab === "metrics" && <MetricsPage/>}
             </main>
 
             {showNewPayment && (
                 <NewPaymentModal
                     onClose={() => setShowNewPayment(false)}
-                    onCreated={() => setPaymentsReloadKey(k => k + 1)}
-                    notify={notifyResultModal}   // ÖNEMLİ: artık modalı açıyoruz
+                    // Increments the key so PaymentsPage reloads after a successful create
+                    onCreated={() => setPaymentsReloadKey((k) => k + 1)}
+                    notify={notifyResultModal}
                 />
             )}
 
-            {/* Sağ alttaki küçük toast (Providers vb.) */}
             <Toast toast={toast}/>
 
             {resultModal && (
@@ -136,10 +160,7 @@ function App() {
             )}
 
             {routingModal && (
-                <RoutingDecisionsModal
-                    state={routingModal}
-                    onClose={closeRoutingModal}
-                />
+                <RoutingDecisionsModal state={routingModal} onClose={closeRoutingModal}/>
             )}
         </div>
     );

@@ -1,6 +1,7 @@
 import React from "react";
 import "../../App.css";
 
+// Props for optional toast notification
 type ToastProps = {
     toast: {
         type: "success" | "error";
@@ -8,9 +9,12 @@ type ToastProps = {
     } | null;
 };
 
-export function Toast({ toast }: ToastProps) {
+export function Toast({toast}: ToastProps) {
+
+    // Do not render anything when there is no toast message
     if (!toast) return null;
 
+    // Applies visual styling only for error messages
     const extraStyle =
         toast.type === "error"
             ? {
