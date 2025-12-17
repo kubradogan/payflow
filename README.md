@@ -2,56 +2,58 @@
 
 PayFlow is a payment orchestration project
 
-It demonstrates:
-- Idempotent payment processing
-- Multi-provider routing with failover
-- Resilience patterns (Circuit Breaker)
-- Observability via admin dashboard
-- Load testing and fault simulation
-
 ## How to Run
 
 Requirements:
+
 - Docker
 - Docker Compose
 
-### Start the full system
+## Demo Flow (Recommended)
 
-```bash
-cd payflow 
-```
-```bash
-docker compose up --build
-```
+1. Start system:
+   ```bash 
+   cd payflow
+   ```
+   ```bash
+   docker compose up --build
+   ```
+   This starts:
+   •PostgreSQL
+   •Redis
+   •PayFlow API (Spring Boot)
+   •Admin UI (React)
 
-This starts:
-	•PostgreSQL
-	•Redis
-	•PayFlow API (Spring Boot)
-	•Admin UI (React)
+2. Open Admin UI:
+   http://localhost:3000
+   (admin / admin123)
+   ```bash
+   admin / admin123
+   ```   
 
-## Stop / Clean
-```bash
-docker compose down -v
-```
+3. Generate demo data (optional but recommended):
+   docker run --rm -i \
+   -e BASE_URL=http://host.docker.internal:8080 \
+   -v "$PWD/payflow-api/k6:/scripts" \
+   grafana/k6 run /scripts/k6-load.js
+
+4. Observe:
+    - Payments list (pagination, filters)
+    - Routing decisions (View button)
+    - Metrics page (successRate, p95 latency)
+    - Providers page (simulate failover)
 
 API: http://localhost:8080/swagger-ui.html
 Admin UI: http://localhost:3000
 
-## Default admin credentials:
+## Stop / Clean
 
 ```bash
-admin / admin123
+docker compose down -v
 ```
 
-##  Load Test (k6)
+## Project Structure
 
-Load testing is optional and not executed automatically.
-```bash
-k6 run payflow-api/k6-load.js
-```
-
-##  Project Structure
 	•payflow-api/ → Spring Boot backend
 	•admin-ui/ → React admin dashboard
 	•docker-compose.yml → Full system setup
