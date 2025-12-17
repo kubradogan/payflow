@@ -58,5 +58,9 @@ docker compose down -v
 	•admin-ui/ → React admin dashboard
 	•docker-compose.yml → Full system setup
 
-For backend technical details see:
-payflow-api/README.md
+
+For technical details see the READMEs: (optional)
+Backend:
+   payflow-api/README.md
+Frontend:
+   admin-ui/README.md
