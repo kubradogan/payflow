@@ -1,18 +1,60 @@
-# PayFlow – Payment Routing & Failover System
+# PayFlow – Payment Orchestration System
 
-This project is a full-stack payment orchestration system developed for the HDip in Computing Project module.
+PayFlow is a payment orchestration project
 
-## Prerequisites
-- Docker Desktop (Mac / Windows / Linux)
+It demonstrates:
+- Idempotent payment processing
+- Multi-provider routing with failover
+- Resilience patterns (Circuit Breaker)
+- Observability via admin dashboard
+- Load testing and fault simulation
 
 ## How to Run
-`cd payflow`
 
-`docker compose up --build`
+Requirements:
+- Docker
+- Docker Compose
+
+### Start the full system
+
+```bash
+cd payflow 
+```
+```bash
+docker compose up --build
+```
+
+This starts:
+	•PostgreSQL
+	•Redis
+	•PayFlow API (Spring Boot)
+	•Admin UI (React)
 
 ## Stop / Clean
-`docker compose down -v`
+```bash
+docker compose down -v
+```
 
-UI: http://localhost:3000
-API Swagger: http://localhost:8080/swagger-ui.html
-Admin login: admin / admin123
+API: http://localhost:8080/swagger-ui.html
+Admin UI: http://localhost:3000
+
+## Default admin credentials:
+
+```bash
+admin / admin123
+```
+
+##  Load Test (k6)
+
+Load testing is optional and not executed automatically.
+```bash
+k6 run payflow-api/k6-load.js
+```
+
+##  Project Structure
+	•payflow-api/ → Spring Boot backend
+	•admin-ui/ → React admin dashboard
+	•docker-compose.yml → Full system setup
+
+For backend technical details see:
+payflow-api/README.md
