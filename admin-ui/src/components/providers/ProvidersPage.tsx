@@ -122,18 +122,6 @@ export function ProvidersPage({notify}: ProvidersPageProps) {
                                 <div
                                     style={{
                                         marginTop: 10,
-                                        fontSize: 15,
-                                        color: "#9ca3af",
-                                    }}
-                                >
-                                    Routed volume last 24h: <strong>–</strong> (demo)
-                                    <br/>
-                                    Error rate last hour: <strong>–</strong>
-                                </div>
-
-                                <div
-                                    style={{
-                                        marginTop: 10,
                                         display: "flex",
                                         gap: 8,
                                     }}

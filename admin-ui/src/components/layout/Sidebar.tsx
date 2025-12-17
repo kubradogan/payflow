@@ -22,38 +22,55 @@ export function Sidebar({active, onChange}: SidebarProps) {
             <div>
                 {/* Primary navigation section */}
                 <div className="sidebar-section-title">Navigation</div>
-
                 <nav className="sidebar-nav">
-                    {/* Payments page entry */}
+                    {/*
+                        Payments icon:
+                        Commerce and shopping icons created by Arfianta - Flaticon
+                        https://www.flaticon.com/free-icons/commerce-and-shopping
+                    */}
                     <button
-                        className={
-                            "sidebar-item " + (active === PAGES.PAYMENTS ? "active" : "")
-                        }
+                        className={"sidebar-item " + (active === PAGES.PAYMENTS ? "active" : "")}
                         onClick={() => onChange(PAGES.PAYMENTS)}
                     >
-                        <span className="icon">💳</span>
+                        <img
+                            src={`${process.env.PUBLIC_URL}/icons/payments.png`}
+                            alt="Payments"
+                            className="icon-img"
+                        />
                         <span className="text">Payments</span>
                     </button>
 
-                    {/* Providers management page entry */}
+                    {/*
+                        Providers icon:
+                        Bank icons created by kmg design - Flaticon
+                        https://www.flaticon.com/free-icons/bank
+                    */}
                     <button
-                        className={
-                            "sidebar-item " + (active === PAGES.PROVIDERS ? "active" : "")
-                        }
+                        className={"sidebar-item " + (active === PAGES.PROVIDERS ? "active" : "")}
                         onClick={() => onChange(PAGES.PROVIDERS)}
                     >
-                        <span className="icon">🏦</span>
+                        <img
+                            src={`${process.env.PUBLIC_URL}/icons/providers.png`}
+                            alt="Providers"
+                            className="icon-img"
+                        />
                         <span className="text">Providers</span>
                     </button>
 
-                    {/* Metrics and monitoring page entry */}
+                    {/*
+                        Metrics icon:
+                        Metric icons created by everyday icon - Flaticon
+                        https://www.flaticon.com/free-icons/metric
+                    */}
                     <button
-                        className={
-                            "sidebar-item " + (active === PAGES.METRICS ? "active" : "")
-                        }
+                        className={"sidebar-item " + (active === PAGES.METRICS ? "active" : "")}
                         onClick={() => onChange(PAGES.METRICS)}
                     >
-                        <span className="icon">📊</span>
+                        <img
+                            src={`${process.env.PUBLIC_URL}/icons/metrics.png`}
+                            alt="Metrics"
+                            className="icon-img"
+                        />
                         <span className="text">Metrics</span>
                     </button>
                 </nav>
